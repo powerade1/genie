@@ -1,0 +1,14 @@
+openwakeword
+pyaudio
+google-genai
+librosa
+soundfile
+pyyaml
+onnxruntime
+torch
+typing_extensions>=4.14.0
+pydantic>=2.11,<3
+tavily-python
+pynput
+
+# YouTube 재생 (CLI): brew install yt-dlp mpv

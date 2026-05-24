@@ -1,0 +1,14 @@
+model_name: "genie"
+target_phrase:
+  - "지니"
+  - "지니야"
+
+positive_dir: "./data/positive"
+negative_dir: "./data/negative"
+output_dir: "./model"
+features_dir: "./model/features"
+
+clip_size_seconds: 2
+epochs: 50
+batch_size: 32
+layer_dim: 32
