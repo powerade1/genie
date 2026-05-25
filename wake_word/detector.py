@@ -2,6 +2,7 @@ import pyaudio
 import numpy as np
 from openwakeword.model import Model
 
+from audio.feedback import play_activation_chime
 from config import WAKE_WORD_FRAME_SIZE, WAKE_WORD_MODEL_PATH, WAKE_WORD_THRESHOLD
 
 
@@ -34,6 +35,7 @@ class WakeWordDetector:
                 for _, score in predictions.items():
                     if score > self.threshold:
                         print(f"Wake word 감지! (score: {score:.2f})")
+                        play_activation_chime()
                         callback()
                         self.model.reset()
                         break

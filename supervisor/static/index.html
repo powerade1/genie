@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Genie Supervisor</title>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    :root {
+      --bg: #212121;
+      --panel: #2f2f2f;
+      --sidebar: #1a1a1a;
+      --border: #3a3a3a;
+      --text: #ececec;
+      --muted: #a0a0a0;
+      --accent: #d97757;
+      --accent-hover: #c46648;
+      --user-bg: #333333;
+      --bot-bg: transparent;
+      --success: #4ade80;
+      --error: #f87171;
+      --left-width: 240px;
+      --right-width: 360px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      height: 52px;
+      padding: 0 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--sidebar);
+      flex-shrink: 0;
+    }
+
+    header h1 { font-size: 16px; font-weight: 600; }
+
+    .header-actions { display: flex; align-items: center; gap: 8px; }
+
+    .header-actions span { color: var(--muted); font-size: 12px; margin-right: 8px; }
+
+    button {
+      cursor: pointer;
+      border: none;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      transition: background 0.15s, opacity 0.15s;
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      padding: 6px 12px;
+    }
+
+    .btn-ghost:hover { color: var(--text); border-color: var(--muted); }
+
+    .btn-primary {
+      background: var(--accent);
+      color: white;
+      padding: 8px 14px;
+    }
+
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .btn-success {
+      background: var(--success);
+      color: #111;
+      padding: 10px 14px;
+      width: 100%;
+    }
+
+    .btn-success:disabled {
+      background: var(--border);
+      color: var(--muted);
+      cursor: not-allowed;
+    }
+
+    .layout {
+      flex: 1;
+      display: grid;
+      grid-template-columns: var(--left-width) 1fr var(--right-width);
+      min-height: 0;
+      height: calc(100vh - 52px);
+      margin-top: 52px;
+      overflow: hidden;
+      transition: grid-template-columns 0.2s ease;
+    }
+
+    .layout.left-collapsed { grid-template-columns: 0px 1fr var(--right-width); }
+    .layout.right-collapsed { grid-template-columns: var(--left-width) 1fr 0px; }
+    .layout.left-collapsed.right-collapsed { grid-template-columns: 0px 1fr 0px; }
+
+    .sidebar {
+      background: var(--sidebar);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .sidebar-right {
+      border-right: none;
+      border-left: 1px solid var(--border);
+    }
+
+    .sidebar-header {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .session-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px;
+    }
+
+    .session-item {
+      padding: 10px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-bottom: 4px;
+      border: 1px solid transparent;
+    }
+
+    .session-item:hover { background: var(--panel); }
+    .session-item.active {
+      background: var(--panel);
+      border-color: var(--border);
+    }
+
+    .session-title {
+      font-size: 13px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .session-date { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+    .chat-panel {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      min-height: 0;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+    }
+
+    .messages-wrap {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .messages {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 24px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .msg-row { display: flex; flex-direction: column; gap: 6px; }
+    .msg-row.user { align-items: flex-end; }
+    .msg-row.bot { align-items: flex-start; }
+
+    .msg-label { font-size: 11px; color: var(--muted); padding: 0 4px; }
+
+    .msg {
+      max-width: 90%;
+      padding: 12px 16px;
+      border-radius: 12px;
+      line-height: 1.65;
+      font-size: 14px;
+      word-break: break-word;
+    }
+
+    .msg.user {
+      background: var(--user-bg);
+      white-space: pre-wrap;
+    }
+
+    .msg.bot { background: var(--bot-bg); }
+
+    .thinking-block {
+      max-width: 90%;
+      margin-bottom: 4px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--panel);
+      overflow: hidden;
+    }
+
+    .thinking-toggle {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 500;
+      text-align: left;
+      border: none;
+      cursor: pointer;
+    }
+
+    .thinking-toggle:hover { color: var(--text); background: rgba(255,255,255,0.03); }
+
+    .thinking-chevron {
+      display: inline-block;
+      transition: transform 0.2s ease;
+      font-size: 11px;
+    }
+
+    .thinking-block.expanded .thinking-chevron { transform: rotate(90deg); }
+
+    .thinking-body {
+      display: none;
+      padding: 0 14px 12px;
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--muted);
+      white-space: pre-wrap;
+      word-break: break-word;
+      border-top: 1px solid var(--border);
+    }
+
+    .thinking-block.expanded .thinking-body { display: block; padding-top: 12px; }
+
+    .msg.bot .md-content p { margin-bottom: 0.75em; }
+    .msg.bot .md-content p:last-child { margin-bottom: 0; }
+    .msg.bot .md-content ul, .msg.bot .md-content ol { margin: 0.5em 0 0.5em 1.25em; }
+    .msg.bot .md-content code {
+      background: var(--panel);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+    .msg.bot .md-content pre {
+      background: var(--panel);
+      padding: 12px;
+      border-radius: 8px;
+      overflow-x: auto;
+      margin: 0.5em 0;
+    }
+    .msg.bot .md-content pre code { background: none; padding: 0; }
+
+    .input-area {
+      flex-shrink: 0;
+      padding: 16px 20px 20px;
+      border-top: 1px solid var(--border);
+      background: var(--bg);
+    }
+
+    .input-box {
+      max-width: 720px;
+      margin: 0 auto;
+      display: flex;
+      gap: 10px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 10px 12px;
+    }
+
+    .input-box:focus-within { border-color: var(--accent); }
+
+    .input-box textarea {
+      flex: 1;
+      resize: none;
+      background: transparent;
+      border: none;
+      color: var(--text);
+      font-size: 14px;
+      font-family: inherit;
+      min-height: 24px;
+      max-height: 120px;
+      outline: none;
+    }
+
+    .btn-send {
+      background: var(--accent);
+      color: white;
+      padding: 8px 16px;
+      align-self: flex-end;
+      border-radius: 8px;
+    }
+
+    .btn-send:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .prompt-panel {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .prompt-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 14px;
+    }
+
+    .prompt-box {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      min-height: 120px;
+      font-size: 14px;
+      line-height: 1.65;
+    }
+
+    .prompt-box.empty { color: var(--muted); }
+
+    .prompt-box .md-content h1, .prompt-box .md-content h2, .prompt-box .md-content h3 {
+      font-size: 15px;
+      margin: 0.75em 0 0.4em;
+    }
+    .prompt-box .md-content p { margin-bottom: 0.6em; }
+    .prompt-box .md-content ul, .prompt-box .md-content ol { margin: 0.4em 0 0.4em 1.25em; }
+    .prompt-box .md-content code {
+      background: var(--bg);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+    .prompt-box .md-content pre {
+      background: var(--bg);
+      padding: 12px;
+      border-radius: 8px;
+      overflow-x: auto;
+      margin: 0.5em 0;
+    }
+
+    .mode-badge {
+      display: inline-block;
+      margin-bottom: 12px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      background: rgba(217, 119, 87, 0.15);
+      color: var(--accent);
+      border: 1px solid rgba(217, 119, 87, 0.35);
+      text-transform: capitalize;
+    }
+
+    .mode-badge.hidden { display: none; }
+
+    .prompt-actions {
+      padding: 14px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .status { font-size: 12px; min-height: 18px; color: var(--muted); }
+    .status.error { color: var(--error); }
+    .status.success { color: var(--success); }
+
+    .empty-hint {
+      color: var(--muted);
+      font-size: 14px;
+      text-align: center;
+      padding: 60px 20px;
+    }
+
+    .resume-bar {
+      display: none;
+      flex-shrink: 0;
+      padding: 10px 20px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      text-align: center;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .resume-bar.visible { display: block; }
+
+    .resume-bar button { margin-left: 10px; }
+
+    .sidebar.collapsed { width: 0; min-width: 0; overflow: hidden; border: none; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Genie Supervisor</h1>
+    <div class="header-actions">
+      <span>Gemini 3.5 Flash</span>
+      <button class="btn-ghost" id="toggleLeftBtn" type="button" title="대화 기록">◀ 기록</button>
+      <button class="btn-ghost" id="toggleRightBtn" type="button" title="프롬프트">프롬프트 ▶</button>
+      <button class="btn-ghost" id="newChatBtn" type="button">+ 새 대화</button>
+    </div>
+  </header>
+
+  <div class="layout" id="layout">
+    <aside class="sidebar" id="leftSidebar">
+      <div class="sidebar-header">대화 기록</div>
+      <div class="session-list" id="sessionList"></div>
+    </aside>
+
+    <section class="chat-panel">
+      <div class="resume-bar" id="resumeBar">
+        과거 대화 미리보기 중
+        <button class="btn-ghost" id="resumeBtn" type="button">이 대화 이어하기</button>
+      </div>
+      <div class="messages-wrap" id="messagesWrap">
+        <div class="messages" id="messages">
+          <p class="empty-hint" id="emptyHint">문제 상황을 설명하거나 Supervisor와 토론하세요.</p>
+        </div>
+      </div>
+      <div class="input-area">
+        <div class="input-box">
+          <textarea id="input" rows="1" placeholder="메시지 입력... (Enter: 전송, Shift+Enter: 줄바꿈)"></textarea>
+          <button class="btn-send" id="sendBtn" type="button">전송</button>
+        </div>
+      </div>
+    </section>
+
+    <aside class="sidebar sidebar-right" id="rightSidebar">
+      <div class="prompt-panel">
+        <div class="sidebar-header">Cursor 프롬프트</div>
+        <div class="prompt-body">
+          <span class="mode-badge hidden" id="modeBadge"></span>
+          <div class="prompt-box empty" id="promptBox">
+            <span id="promptPlaceholder">[프롬프트 제안] 버튼을 누르거나 대화에서 최종 동의하면 생성됩니다.</span>
+            <div class="md-content" id="promptContent" hidden></div>
+          </div>
+        </div>
+        <div class="prompt-actions">
+          <button class="btn-primary" id="suggestBtn" type="button">프롬프트 제안</button>
+          <button class="btn-success" id="copyBtn" type="button" disabled>프롬프트 복사</button>
+          <div class="status" id="status"></div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <script>
+    const STORAGE_KEY = "genie_supervisor_sessions";
+    const UI_KEY = "genie_supervisor_ui";
+
+    const messagesEl = document.getElementById("messages");
+    const messagesWrapEl = document.getElementById("messagesWrap");
+    const emptyHint = document.getElementById("emptyHint");
+    const inputEl = document.getElementById("input");
+    const sendBtn = document.getElementById("sendBtn");
+    const suggestBtn = document.getElementById("suggestBtn");
+    const copyBtn = document.getElementById("copyBtn");
+    const promptBox = document.getElementById("promptBox");
+    const promptPlaceholder = document.getElementById("promptPlaceholder");
+    const promptContent = document.getElementById("promptContent");
+    const modeBadge = document.getElementById("modeBadge");
+    const statusEl = document.getElementById("status");
+    const sessionListEl = document.getElementById("sessionList");
+    const layoutEl = document.getElementById("layout");
+    const resumeBar = document.getElementById("resumeBar");
+    const resumeBtn = document.getElementById("resumeBtn");
+
+    let store = loadStore();
+    let currentPrompt = null;
+    let currentTargetMode = "plan";
+    let sending = false;
+    let suggesting = false;
+    let readonlyMode = false;
+    let serverSessionId = store.activeId;
+    let pendingResumeSession = null;
+
+    marked.setOptions({ breaks: true, gfm: true });
+
+    function loadStore() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) return JSON.parse(raw);
+      } catch (_) {}
+      const id = crypto.randomUUID();
+      return {
+        activeId: id,
+        sessions: [{
+          id,
+          title: "새 대화",
+          messages: [],
+          cursorPrompt: null,
+          cursorTargetMode: "plan",
+          updatedAt: Date.now(),
+        }],
+      };
+    }
+
+    function saveStore() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+    }
+
+    function loadUiState() {
+      try {
+        return JSON.parse(localStorage.getItem(UI_KEY) || "{}");
+      } catch (_) {
+        return {};
+      }
+    }
+
+    function saveUiState() {
+      localStorage.setItem(UI_KEY, JSON.stringify({
+        leftCollapsed: layoutEl.classList.contains("left-collapsed"),
+        rightCollapsed: layoutEl.classList.contains("right-collapsed"),
+      }));
+    }
+
+    function getActiveSession() {
+      return store.sessions.find((s) => s.id === store.activeId) || store.sessions[0];
+    }
+
+    function sessionTitle(messages) {
+      const first = messages.find((m) => m.role === "user");
+      if (!first) return "새 대화";
+      return first.content.slice(0, 30) + (first.content.length > 30 ? "…" : "");
+    }
+
+    function formatDate(ts) {
+      return new Date(ts).toLocaleString("ko-KR", {
+        month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+      });
+    }
+
+    function renderMarkdown(text) {
+      return marked.parse(text || "");
+    }
+
+    function clearMessagesDom() {
+      messagesEl.innerHTML = "";
+    }
+
+    function renderMessages(messages) {
+      clearMessagesDom();
+      if (!messages.length) {
+        messagesEl.innerHTML = '<p class="empty-hint" id="emptyHint">문제 상황을 설명하거나 Supervisor와 토론하세요.</p>';
+        return;
+      }
+      for (const msg of messages) {
+        appendMessageDom(
+          { content: msg.content, role: msg.role, thinking: msg.thinking },
+          false,
+        );
+      }
+    }
+
+    function createThinkingBlock(thinking) {
+      const block = document.createElement("div");
+      block.className = "thinking-block";
+
+      const toggle = document.createElement("button");
+      toggle.type = "button";
+      toggle.className = "thinking-toggle";
+      toggle.innerHTML = '<span class="thinking-chevron">▶</span><span>사고 과정</span>';
+
+      const body = document.createElement("div");
+      body.className = "thinking-body";
+      body.textContent = thinking;
+
+      toggle.addEventListener("click", () => {
+        block.classList.toggle("expanded");
+      });
+
+      block.appendChild(toggle);
+      block.appendChild(body);
+      return block;
+    }
+
+    function appendMessageDom({ content, role, thinking = null }, scroll = true) {
+      const hint = document.getElementById("emptyHint");
+      if (hint) hint.remove();
+
+      const row = document.createElement("div");
+      row.className = `msg-row ${role}`;
+
+      const label = document.createElement("div");
+      label.className = "msg-label";
+      label.textContent = role === "user" ? "You" : "Supervisor";
+
+      row.appendChild(label);
+
+      if (role === "bot" && thinking) {
+        row.appendChild(createThinkingBlock(thinking));
+      }
+
+      const div = document.createElement("div");
+      div.className = `msg ${role}`;
+
+      if (role === "bot") {
+        const md = document.createElement("div");
+        md.className = "md-content";
+        md.innerHTML = renderMarkdown(content);
+        div.appendChild(md);
+      } else {
+        div.textContent = content;
+      }
+
+      row.appendChild(div);
+      messagesEl.appendChild(row);
+
+      if (scroll) {
+        messagesWrapEl.scrollTop = messagesWrapEl.scrollHeight;
+      }
+    }
+
+    const MODE_LABELS = {
+      agent: "Agent 모드",
+      plan: "Plan 모드",
+      debug: "Debug 모드",
+      ask: "Ask 모드",
+      multitask: "Multitask 모드",
+    };
+
+    function setPrompt(prompt, targetMode = "plan") {
+      currentPrompt = prompt;
+      currentTargetMode = targetMode || "plan";
+      const session = getActiveSession();
+      session.cursorPrompt = prompt;
+      session.cursorTargetMode = currentTargetMode;
+      saveStore();
+
+      if (prompt) {
+        promptPlaceholder.hidden = true;
+        promptContent.hidden = false;
+        promptContent.innerHTML = renderMarkdown(prompt);
+        promptBox.classList.remove("empty");
+        modeBadge.textContent = MODE_LABELS[currentTargetMode] || `${currentTargetMode} 모드`;
+        modeBadge.classList.remove("hidden");
+        copyBtn.disabled = false;
+      } else {
+        promptPlaceholder.hidden = false;
+        promptContent.hidden = true;
+        promptContent.innerHTML = "";
+        promptBox.classList.add("empty");
+        modeBadge.classList.add("hidden");
+        copyBtn.disabled = true;
+      }
+    }
+
+    function setStatus(text, type) {
+      statusEl.textContent = text || "";
+      statusEl.className = "status" + (type ? ` ${type}` : "");
+    }
+
+    function renderSessionList() {
+      sessionListEl.innerHTML = "";
+      const sorted = [...store.sessions].sort((a, b) => b.updatedAt - a.updatedAt);
+      for (const session of sorted) {
+        const item = document.createElement("div");
+        item.className = "session-item" + (session.id === store.activeId ? " active" : "");
+        item.innerHTML = `
+          <div class="session-title">${escapeHtml(session.title)}</div>
+          <div class="session-date">${formatDate(session.updatedAt)}</div>
+        `;
+        item.addEventListener("click", () => loadSession(session.id));
+        sessionListEl.appendChild(item);
+      }
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    function persistActiveSession() {
+      const session = getActiveSession();
+      session.updatedAt = Date.now();
+      session.title = sessionTitle(session.messages);
+      saveStore();
+      renderSessionList();
+    }
+
+    function setInputEnabled(enabled) {
+      inputEl.disabled = !enabled;
+      sendBtn.disabled = !enabled || sending;
+    }
+
+    function enterReadonly(session) {
+      readonlyMode = true;
+      pendingResumeSession = session;
+      resumeBar.classList.add("visible");
+      setInputEnabled(false);
+    }
+
+    function exitReadonly() {
+      readonlyMode = false;
+      pendingResumeSession = null;
+      resumeBar.classList.remove("visible");
+      setInputEnabled(true);
+    }
+
+    async function loadSession(sessionId) {
+      if (sessionId === store.activeId && !readonlyMode) return;
+      const session = store.sessions.find((s) => s.id === sessionId);
+      if (!session) return;
+
+      store.activeId = sessionId;
+      saveStore();
+      renderSessionList();
+      renderMessages(session.messages);
+      setPrompt(session.cursorPrompt, session.cursorTargetMode || "plan");
+      setStatus("");
+
+      if (sessionId === serverSessionId) {
+        exitReadonly();
+      } else {
+        enterReadonly(session);
+      }
+    }
+
+    async function resumeSession() {
+      if (!pendingResumeSession) return;
+      const session = pendingResumeSession;
+      const summary = session.messages
+        .slice(-10)
+        .map((m) => `${m.role === "user" ? "사용자" : "Supervisor"}: ${m.content}`)
+        .join("\n\n");
+
+      try {
+        await fetch("/reset", { method: "POST" });
+        await fetch("/seed", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ context: summary }),
+        });
+        exitReadonly();
+        serverSessionId = session.id;
+        setStatus("대화를 이어갈 준비가 되었습니다.", "success");
+      } catch (err) {
+        setStatus(err.message, "error");
+      }
+    }
+
+    async function newChat() {
+      const session = getActiveSession();
+      if (session.messages.length > 0) {
+        session.title = sessionTitle(session.messages);
+        session.updatedAt = Date.now();
+      }
+
+      const id = crypto.randomUUID();
+      store.sessions.unshift({
+        id,
+        title: "새 대화",
+        messages: [],
+        cursorPrompt: null,
+        cursorTargetMode: "plan",
+        updatedAt: Date.now(),
+      });
+      store.activeId = id;
+      serverSessionId = id;
+      saveStore();
+
+      try {
+        await fetch("/reset", { method: "POST" });
+      } catch (_) {}
+
+      exitReadonly();
+      renderSessionList();
+      renderMessages([]);
+      setPrompt(null);
+      setStatus("새 대화를 시작합니다.", "success");
+      inputEl.focus();
+    }
+
+    async function suggestPrompt() {
+      if (suggesting || readonlyMode) return;
+      suggesting = true;
+      suggestBtn.disabled = true;
+      setStatus("프롬프트 생성 중...", "");
+
+      try {
+        const res = await fetch("/suggest-prompt", { method: "POST" });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "프롬프트 생성 실패");
+        setPrompt(data.cursor_prompt, data.target_mode || "plan");
+        setStatus("프롬프트가 생성되었습니다.", "success");
+      } catch (err) {
+        setStatus(err.message, "error");
+      } finally {
+        suggesting = false;
+        suggestBtn.disabled = false;
+      }
+    }
+
+    async function sendMessage() {
+      const message = inputEl.value.trim();
+      if (!message || sending || readonlyMode) return;
+
+      sending = true;
+      sendBtn.disabled = true;
+      setStatus("");
+
+      const session = getActiveSession();
+      session.messages.push({ role: "user", content: message });
+      appendMessageDom({ content: message, role: "user" });
+      inputEl.value = "";
+      persistActiveSession();
+
+      try {
+        const res = await fetch("/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "채팅 요청 실패");
+
+        session.messages.push({
+          role: "bot",
+          content: data.reply,
+          thinking: data.thinking || null,
+        });
+        appendMessageDom({
+          content: data.reply,
+          role: "bot",
+          thinking: data.thinking || null,
+        });
+        persistActiveSession();
+
+        if (data.ready_for_prompt) {
+          await suggestPrompt();
+        }
+      } catch (err) {
+        appendMessageDom({ content: `오류: ${err.message}`, role: "bot" });
+        setStatus(err.message, "error");
+      } finally {
+        sending = false;
+        sendBtn.disabled = false;
+        inputEl.focus();
+      }
+    }
+
+    async function copyPrompt() {
+      if (!currentPrompt) return;
+
+      setStatus("복사 중...", "");
+
+      try {
+        await navigator.clipboard.writeText(currentPrompt);
+        const modeLabel = MODE_LABELS[currentTargetMode] || currentTargetMode;
+        setStatus(
+          `${modeLabel} 프롬프트를 복사했습니다. Cursor Composer에 붙여넣으세요.`,
+          "success",
+        );
+      } catch (err) {
+        setStatus(err.message || "클립보드 복사에 실패했습니다.", "error");
+      }
+    }
+
+    function toggleLeft() {
+      layoutEl.classList.toggle("left-collapsed");
+      saveUiState();
+    }
+
+    function toggleRight() {
+      layoutEl.classList.toggle("right-collapsed");
+      saveUiState();
+    }
+
+    function initUiState() {
+      const ui = loadUiState();
+      if (ui.leftCollapsed) layoutEl.classList.add("left-collapsed");
+      if (ui.rightCollapsed) layoutEl.classList.add("right-collapsed");
+    }
+
+    sendBtn.addEventListener("click", sendMessage);
+    suggestBtn.addEventListener("click", suggestPrompt);
+    copyBtn.addEventListener("click", copyPrompt);
+    document.getElementById("newChatBtn").addEventListener("click", newChat);
+    document.getElementById("toggleLeftBtn").addEventListener("click", toggleLeft);
+    document.getElementById("toggleRightBtn").addEventListener("click", toggleRight);
+    resumeBtn.addEventListener("click", resumeSession);
+
+    inputEl.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+
+    initUiState();
+    renderSessionList();
+    const active = getActiveSession();
+    renderMessages(active.messages);
+    setPrompt(active.cursorPrompt, active.cursorTargetMode || "plan");
+    inputEl.focus();
+  </script>
+</body>
+</html>

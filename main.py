@@ -5,6 +5,7 @@ import threading
 from pathlib import Path
 
 from config import WAKE_WORD_MODEL_PATH
+from audio.feedback import play_activation_chime
 from hotkey.listener import HotkeyListener
 from live.session import ensure_api_key, run_live_session
 from wake_word.detector import WakeWordDetector
@@ -51,6 +52,8 @@ def launch_session(source: str):
         print(f"({source}) 이미 세션 진행 중, 무시")
         return
     try:
+        if source == "hotkey":
+            play_activation_chime()
         print(f"지니 활성화 ({source})")
         asyncio.run(run_live_session())
         print("대기 중으로 복귀...")

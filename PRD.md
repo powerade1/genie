@@ -3,6 +3,8 @@
 > "지니야" 한마디로 시작하는, 말로 뭐든 되는 맥북 비서
 > 
 
+> Supervisor AI 컨텍스트(SSOT)는 [`SUPERVISOR_CONTEXT.md`](SUPERVISOR_CONTEXT.md)에서 별도 관리합니다.
+
 ---
 
 ## 📐 전체 아키텍처
