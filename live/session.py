@@ -8,7 +8,7 @@ import pyaudio
 from google import genai
 from google.genai import types
 
-from actions import apps, browser, files, system, web, youtube
+from actions import apps, browser, custom_actions, files, supervisor, system, web, youtube
 from config import (
     CHUNK_SIZE,
     GEMINI_MODEL,
@@ -126,6 +126,17 @@ TOOLS = [
         },
     },
     {
+        "name": "start_work_routine",
+        "description": (
+            "업무·작업 시작 루틴을 실행합니다. "
+            "'업무 시작', '작업 시작', '루틴 시작', '일 시작', '개발 시작', "
+            "'준비해줘', '세팅해줘' 등 업무 환경을 한꺼번에 준비해 달라는 요청에 사용하세요. "
+            "종팝 플레이리스트를 재생한 뒤 Cursor, Google Chrome, Notion을 순서대로 실행합니다. "
+            "앱 하나만 열거나 음악만 재생할 때는 open_app이나 play_youtube를 사용하세요."
+        ),
+        "parameters": {"type": "object", "properties": {}},
+    },
+    {
         "name": "play_youtube",
         "description": (
             "YouTube에서 키워드로 영상·음악·플레이리스트를 검색해 재생합니다. "
@@ -155,6 +166,23 @@ TOOLS = [
         "parameters": {"type": "object", "properties": {}},
     },
     {
+        "name": "create_tool",
+        "description": (
+            "코딩·개발·아키텍처 작업을 Supervisor 웹 UI에서 시작할 때 호출합니다. "
+            "사용자의 음성 요청을 tool_description으로 요약해 전달하세요."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "tool_description": {
+                    "type": "string",
+                    "description": "Supervisor에 전달할 작업 설명 (사용자 요청 요약)",
+                }
+            },
+            "required": ["tool_description"],
+        },
+    },
+    {
         "name": "end_session",
         "description": (
             "사용자가 대화를 끝내려는 의도(예: '끝', '그만', '고마워', "
@@ -170,6 +198,7 @@ def _end_session_action() -> str:
 
 
 ACTION_MAP = {
+    "start_work_routine": custom_actions.start_work_routine,
     "open_app": apps.open_app,
     "close_app": apps.close_app,
     "set_volume": system.set_volume,
@@ -179,6 +208,7 @@ ACTION_MAP = {
     "search_web": web.search_web,
     "play_youtube": youtube.play_youtube,
     "stop_youtube": youtube.stop_youtube,
+    "create_tool": supervisor.create_tool,
     "end_session": _end_session_action,
 }
 

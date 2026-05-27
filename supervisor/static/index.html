@@ -19,7 +19,8 @@
       --bot-bg: transparent;
       --success: #4ade80;
       --error: #f87171;
-      --left-width: 240px;
+      --left-rail-width: 52px;
+      --left-open-width: 260px;
       --right-width: 360px;
     }
 
@@ -39,45 +40,42 @@
       overflow: hidden;
     }
 
-    header {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      z-index: 100;
-      height: 52px;
-      padding: 0 16px;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      background: var(--sidebar);
-      flex-shrink: 0;
-    }
-
-    header h1 { font-size: 16px; font-weight: 600; }
-
-    .header-actions { display: flex; align-items: center; gap: 8px; }
-
-    .header-actions span { color: var(--muted); font-size: 12px; margin-right: 8px; }
-
     button {
       cursor: pointer;
       border: none;
       border-radius: 8px;
       font-size: 13px;
       font-weight: 500;
-      transition: background 0.15s, opacity 0.15s;
+      transition: background 0.15s, opacity 0.15s, color 0.15s;
     }
 
-    .btn-ghost {
+    .icon-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      padding: 0;
       background: transparent;
       color: var(--muted);
-      border: 1px solid var(--border);
-      padding: 6px 12px;
+      border-radius: 8px;
+      flex-shrink: 0;
     }
 
-    .btn-ghost:hover { color: var(--text); border-color: var(--muted); }
+    .icon-btn:hover {
+      background: var(--panel);
+      color: var(--text);
+    }
+
+    .icon-btn svg {
+      width: 18px;
+      height: 18px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.75;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
 
     .btn-primary {
       background: var(--accent);
@@ -87,6 +85,46 @@
 
     .btn-primary:hover { background: var(--accent-hover); }
     .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .btn-secondary {
+      background: transparent;
+      color: var(--text);
+      padding: 8px 14px;
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+      background: rgba(255, 255, 255, 0.06);
+      border-color: var(--muted);
+    }
+
+    .btn-secondary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn-suggest {
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--text);
+      padding: 8px 14px;
+      border: 1px solid var(--border);
+      width: 100%;
+    }
+
+    .btn-suggest:hover:not(:disabled) {
+      background: rgba(255, 255, 255, 0.06);
+      border-color: var(--muted);
+      color: var(--text);
+    }
+
+    .btn-suggest:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn-execute {
+      width: 100%;
+    }
 
     .btn-success {
       background: var(--success);
@@ -101,20 +139,68 @@
       cursor: not-allowed;
     }
 
+    .btn-new-chat {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+      padding: 10px 12px;
+      background: transparent;
+      color: var(--text);
+      border: none;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 500;
+      text-align: left;
+    }
+
+    .btn-new-chat:hover {
+      background: var(--panel);
+    }
+
+    .new-chat-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--panel);
+      color: var(--text);
+      flex-shrink: 0;
+    }
+
+    .new-chat-icon svg {
+      width: 14px;
+      height: 14px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+    }
+
     .layout {
       flex: 1;
       display: grid;
-      grid-template-columns: var(--left-width) 1fr var(--right-width);
+      grid-template-columns: var(--left-col) 1fr var(--right-col);
       min-height: 0;
-      height: calc(100vh - 52px);
-      margin-top: 52px;
+      height: 100vh;
       overflow: hidden;
       transition: grid-template-columns 0.2s ease;
     }
 
-    .layout.left-collapsed { grid-template-columns: 0px 1fr var(--right-width); }
-    .layout.right-collapsed { grid-template-columns: var(--left-width) 1fr 0px; }
-    .layout.left-collapsed.right-collapsed { grid-template-columns: 0px 1fr 0px; }
+    .layout {
+      --left-col: var(--left-open-width);
+      --right-col: var(--right-width);
+    }
+
+    .layout.left-collapsed {
+      --left-col: var(--left-rail-width);
+    }
+
+    .layout.right-collapsed {
+      --right-col: 0px;
+    }
 
     .sidebar {
       background: var(--sidebar);
@@ -125,26 +211,129 @@
       overflow: hidden;
     }
 
+    .sidebar-left {
+      position: relative;
+    }
+
+    .left-rail {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      height: 100%;
+      width: var(--left-rail-width);
+    }
+
+    .left-rail-header,
+    .left-panel-header {
+      display: flex;
+      align-items: center;
+      height: 48px;
+      min-height: 48px;
+      flex-shrink: 0;
+      box-sizing: border-box;
+    }
+
+    .left-rail-header {
+      justify-content: center;
+      width: 100%;
+    }
+
+    .left-rail-body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 0 12px;
+      flex: 1;
+      width: 100%;
+    }
+
+    .left-rail .icon-btn {
+      width: 36px;
+      height: 36px;
+      padding: 0;
+    }
+
+    .left-rail .new-chat-icon {
+      width: 32px;
+      height: 32px;
+    }
+
+    .layout.left-collapsed .left-rail {
+      display: flex;
+    }
+
+    .left-panel {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      height: 100%;
+      width: 100%;
+    }
+
+    .layout.left-collapsed .left-panel {
+      display: none;
+    }
+
+    .left-panel-header {
+      justify-content: space-between;
+      padding: 0 12px 0 18px;
+    }
+
+    .left-panel-brand {
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      color: var(--text);
+      line-height: 1;
+    }
+
+    .left-panel-actions {
+      padding: 0 6px 8px;
+      flex-shrink: 0;
+    }
+
+    .icon-btn-panel-toggle svg {
+      width: 20px;
+      height: 20px;
+    }
+
     .sidebar-right {
       border-right: none;
       border-left: 1px solid var(--border);
     }
 
-    .sidebar-header {
-      padding: 12px 14px;
-      border-bottom: 1px solid var(--border);
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--muted);
+    .layout.right-collapsed .sidebar-right {
+      overflow: hidden;
+      border: none;
+    }
+
+    .right-panel-top {
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      justify-content: flex-end;
+      padding: 10px 10px 8px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .right-open-fab {
+      display: none;
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      z-index: 20;
+    }
+
+    .layout.right-collapsed .right-open-fab {
+      display: inline-flex;
     }
 
     .session-list {
       flex: 1;
       overflow-y: auto;
-      padding: 8px;
+      padding: 4px 8px 8px;
     }
 
     .session-item {
@@ -178,6 +367,7 @@
       height: 100%;
       overflow: hidden;
       background: var(--bg);
+      position: relative;
     }
 
     .messages-wrap {
@@ -191,17 +381,17 @@
     .messages {
       max-width: 720px;
       margin: 0 auto;
-      padding: 24px 20px;
+      padding: 28px 24px;
       display: flex;
       flex-direction: column;
-      gap: 20px;
+      gap: 36px;
     }
 
-    .msg-row { display: flex; flex-direction: column; gap: 6px; }
+    .msg-row { display: flex; flex-direction: column; gap: 8px; }
     .msg-row.user { align-items: flex-end; }
-    .msg-row.bot { align-items: flex-start; }
+    .msg-row.bot { align-items: flex-start; gap: 10px; }
 
-    .msg-label { font-size: 11px; color: var(--muted); padding: 0 4px; }
+    .msg-label { font-size: 12px; color: var(--muted); padding: 0 4px; }
 
     .msg {
       max-width: 90%;
@@ -215,9 +405,19 @@
     .msg.user {
       background: var(--user-bg);
       white-space: pre-wrap;
+      font-size: 15px;
+      line-height: 1.6;
     }
 
-    .msg.bot { background: var(--bot-bg); }
+    .msg.bot {
+      background: var(--bot-bg);
+      align-self: center;
+      width: 100%;
+      max-width: 100%;
+      padding: 4px 0 8px;
+      font-size: 16px;
+      line-height: 1.75;
+    }
 
     .thinking-block {
       max-width: 90%;
@@ -266,23 +466,44 @@
 
     .thinking-block.expanded .thinking-body { display: block; padding-top: 12px; }
 
-    .msg.bot .md-content p { margin-bottom: 0.75em; }
+    .msg.bot .md-content p { margin-bottom: 1em; }
     .msg.bot .md-content p:last-child { margin-bottom: 0; }
-    .msg.bot .md-content ul, .msg.bot .md-content ol { margin: 0.5em 0 0.5em 1.25em; }
+    .msg.bot .md-content ul, .msg.bot .md-content ol {
+      margin: 0.75em 0 1em 1.35em;
+    }
+    .msg.bot .md-content li + li { margin-top: 0.35em; }
+    .msg.bot .md-content h1, .msg.bot .md-content h2, .msg.bot .md-content h3 {
+      font-size: 1.05em;
+      font-weight: 600;
+      margin: 1.25em 0 0.65em;
+      line-height: 1.4;
+    }
+    .msg.bot .md-content h1:first-child,
+    .msg.bot .md-content h2:first-child,
+    .msg.bot .md-content h3:first-child {
+      margin-top: 0;
+    }
     .msg.bot .md-content code {
       background: var(--panel);
       padding: 2px 6px;
       border-radius: 4px;
-      font-size: 13px;
+      font-size: 0.9em;
     }
     .msg.bot .md-content pre {
       background: var(--panel);
-      padding: 12px;
+      padding: 14px 16px;
       border-radius: 8px;
       overflow-x: auto;
-      margin: 0.5em 0;
+      margin: 1em 0;
+      font-size: 0.9em;
+      line-height: 1.6;
     }
     .msg.bot .md-content pre code { background: none; padding: 0; }
+    .msg.bot .md-content hr {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 1.75em 0;
+    }
 
     .input-area {
       flex-shrink: 0;
@@ -295,11 +516,12 @@
       max-width: 720px;
       margin: 0 auto;
       display: flex;
+      align-items: center;
       gap: 10px;
       background: var(--panel);
       border: 1px solid var(--border);
       border-radius: 14px;
-      padding: 10px 12px;
+      padding: 8px 12px;
     }
 
     .input-box:focus-within { border-color: var(--accent); }
@@ -310,18 +532,26 @@
       background: transparent;
       border: none;
       color: var(--text);
-      font-size: 14px;
+      font-size: 16px;
       font-family: inherit;
-      min-height: 24px;
-      max-height: 120px;
+      line-height: 22px;
+      min-height: 22px;
+      max-height: 200px;
+      padding: 7px 0;
+      margin: 0;
+      overflow-y: hidden;
       outline: none;
     }
 
     .btn-send {
       background: var(--accent);
       color: white;
-      padding: 8px 16px;
-      align-self: flex-end;
+      font-size: 16px;
+      line-height: 22px;
+      padding: 7px 18px;
+      min-height: 36px;
+      flex-shrink: 0;
+      align-self: center;
       border-radius: 8px;
     }
 
@@ -342,16 +572,71 @@
     }
 
     .prompt-box {
+      position: relative;
       background: var(--panel);
       border: 1px solid var(--border);
       border-radius: 10px;
-      padding: 16px;
+      padding: 16px 16px 44px;
       min-height: 120px;
       font-size: 14px;
       line-height: 1.65;
     }
 
     .prompt-box.empty { color: var(--muted); }
+
+    .prompt-copy-btn {
+      position: absolute;
+      bottom: 12px;
+      right: 12px;
+      width: 32px;
+      height: 32px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s, background 0.15s, color 0.15s, border-color 0.15s;
+    }
+
+    .prompt-box:not(.empty) .prompt-copy-btn {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .prompt-copy-btn:not(:disabled):hover {
+      background: var(--panel);
+      color: var(--text);
+      border-color: var(--muted);
+    }
+
+    .prompt-copy-btn:disabled {
+      opacity: 0;
+      pointer-events: none;
+      cursor: not-allowed;
+    }
+
+    .prompt-copy-btn svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    .prompt-copy-btn.copied {
+      color: var(--success);
+      border-color: rgba(74, 222, 128, 0.45);
+      background: rgba(74, 222, 128, 0.1);
+    }
+
+    .prompt-copy-btn .check-icon {
+      display: none;
+    }
+
+    .prompt-copy-btn.copied .copy-icon {
+      display: none;
+    }
+
+    .prompt-copy-btn.copied .check-icon {
+      display: block;
+    }
 
     .prompt-box .md-content h1, .prompt-box .md-content h2, .prompt-box .md-content h3 {
       font-size: 15px;
@@ -394,6 +679,160 @@
       display: flex;
       flex-direction: column;
       gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .exec-log-panel {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      flex: 1;
+      border-top: 1px solid var(--border);
+      background: var(--bg);
+    }
+
+    .exec-log-panel.hidden {
+      display: none;
+    }
+
+    .exec-log-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+
+    .exec-log-badge {
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    .exec-log-badge.running {
+      color: var(--accent);
+      border-color: rgba(217, 119, 87, 0.45);
+      background: rgba(217, 119, 87, 0.12);
+    }
+
+    .exec-log-badge.completed {
+      color: var(--success);
+      border-color: rgba(74, 222, 128, 0.45);
+      background: rgba(74, 222, 128, 0.1);
+    }
+
+    .exec-log-badge.failed {
+      color: var(--error);
+      border-color: rgba(248, 113, 113, 0.45);
+      background: rgba(248, 113, 113, 0.1);
+    }
+
+    .exec-log-badge.waiting {
+      color: #facc15;
+      border-color: rgba(250, 204, 21, 0.45);
+      background: rgba(250, 204, 21, 0.12);
+    }
+
+    .exec-respond-panel {
+      display: none;
+      border-top: 1px solid var(--border);
+      padding: 10px 12px;
+      background: var(--panel);
+      flex-shrink: 0;
+    }
+
+    .exec-respond-panel.visible {
+      display: block;
+    }
+
+    .exec-respond-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: #facc15;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+
+    .exec-respond-question {
+      font-size: 13px;
+      line-height: 1.55;
+      color: var(--text);
+      white-space: pre-wrap;
+      margin-bottom: 8px;
+    }
+
+    .exec-respond-form {
+      display: flex;
+      gap: 8px;
+      align-items: flex-end;
+    }
+
+    .exec-respond-form textarea {
+      flex: 1;
+      resize: none;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 13px;
+      line-height: 1.5;
+      font-family: inherit;
+      min-height: 36px;
+      max-height: 120px;
+      outline: none;
+    }
+
+    .exec-respond-form textarea:focus {
+      border-color: var(--accent);
+    }
+
+    .exec-respond-form button {
+      padding: 8px 14px;
+      background: var(--accent);
+      color: white;
+      border-radius: 8px;
+      font-size: 13px;
+      flex-shrink: 0;
+      align-self: stretch;
+    }
+
+    .exec-respond-form button:hover:not(:disabled) {
+      background: var(--accent-hover);
+    }
+
+    .exec-respond-form button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .exec-log-box {
+      flex: 1;
+      min-height: 120px;
+      max-height: 280px;
+      margin: 0;
+      padding: 12px 14px;
+      overflow: auto;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 12px;
+      line-height: 1.55;
+      color: var(--text);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .exec-log-box:empty::before {
+      content: "Cursor Agent 출력이 여기에 표시됩니다.";
+      color: var(--muted);
     }
 
     .status { font-size: 12px; min-height: 18px; color: var(--muted); }
@@ -420,32 +859,83 @@
 
     .resume-bar.visible { display: block; }
 
-    .resume-bar button { margin-left: 10px; }
+    .resume-bar button {
+      margin-left: 10px;
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 13px;
+    }
 
-    .sidebar.collapsed { width: 0; min-width: 0; overflow: hidden; border: none; }
+    .resume-bar button:hover {
+      color: var(--text);
+      border-color: var(--muted);
+    }
   </style>
 </head>
 <body>
-  <header>
-    <h1>Genie Supervisor</h1>
-    <div class="header-actions">
-      <span>Gemini 3.5 Flash</span>
-      <button class="btn-ghost" id="toggleLeftBtn" type="button" title="대화 기록">◀ 기록</button>
-      <button class="btn-ghost" id="toggleRightBtn" type="button" title="프롬프트">프롬프트 ▶</button>
-      <button class="btn-ghost" id="newChatBtn" type="button">+ 새 대화</button>
-    </div>
-  </header>
-
-  <div class="layout" id="layout">
-    <aside class="sidebar" id="leftSidebar">
-      <div class="sidebar-header">대화 기록</div>
-      <div class="session-list" id="sessionList"></div>
+  <div class="layout left-collapsed right-collapsed" id="layout">
+    <aside class="sidebar sidebar-left" id="leftSidebar">
+      <div class="left-rail">
+        <div class="left-rail-header">
+          <button class="icon-btn icon-btn-panel-toggle" id="openLeftBtn" type="button" title="사이드바 열기">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+              <path d="M9 3v18"></path>
+            </svg>
+          </button>
+        </div>
+        <div class="left-rail-body">
+          <button class="icon-btn" id="newChatBtnCollapsed" type="button" title="새 채팅">
+            <span class="new-chat-icon">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 5v14"></path>
+                <path d="M5 12h14"></path>
+              </svg>
+            </span>
+          </button>
+        </div>
+      </div>
+      <div class="left-panel">
+        <div class="left-panel-header">
+          <div class="left-panel-brand">Genie SV</div>
+          <button class="icon-btn icon-btn-panel-toggle" id="closeLeftBtn" type="button" title="사이드바 닫기">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+              <path d="M9 3v18"></path>
+            </svg>
+          </button>
+        </div>
+        <div class="left-panel-actions">
+          <button class="btn-new-chat" id="newChatBtn" type="button">
+            <span class="new-chat-icon">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 5v14"></path>
+                <path d="M5 12h14"></path>
+              </svg>
+            </span>
+            새 채팅
+          </button>
+        </div>
+        <div class="session-list" id="sessionList"></div>
+      </div>
     </aside>
 
     <section class="chat-panel">
+      <button class="icon-btn right-open-fab" id="openRightBtn" type="button" title="Cursor 프롬프트">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <path d="M14 2v6h6"></path>
+          <path d="M16 13H8"></path>
+          <path d="M16 17H8"></path>
+          <path d="M10 9H8"></path>
+        </svg>
+      </button>
       <div class="resume-bar" id="resumeBar">
         과거 대화 미리보기 중
-        <button class="btn-ghost" id="resumeBtn" type="button">이 대화 이어하기</button>
+        <button id="resumeBtn" type="button">이 대화 이어하기</button>
       </div>
       <div class="messages-wrap" id="messagesWrap">
         <div class="messages" id="messages">
@@ -462,17 +952,47 @@
 
     <aside class="sidebar sidebar-right" id="rightSidebar">
       <div class="prompt-panel">
-        <div class="sidebar-header">Cursor 프롬프트</div>
+        <div class="right-panel-top">
+          <button class="icon-btn" id="closeRightBtn" type="button" title="프롬프트 닫기">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M9 18l6-6-6-6"></path>
+            </svg>
+          </button>
+        </div>
         <div class="prompt-body">
           <span class="mode-badge hidden" id="modeBadge"></span>
           <div class="prompt-box empty" id="promptBox">
-            <span id="promptPlaceholder">[프롬프트 제안] 버튼을 누르거나 대화에서 최종 동의하면 생성됩니다.</span>
+            <span id="promptPlaceholder">[프롬프트 제안] 버튼을 누르거나 대화에서 최종 동의하면 생성됩니다. 생성 후 [Cursor 실행]으로 CLI에 전달하세요.</span>
             <div class="md-content" id="promptContent" hidden></div>
+            <button class="prompt-copy-btn icon-btn" id="copyBtn" type="button" disabled title="복사" aria-label="복사">
+              <svg class="copy-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
+              <svg class="check-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M20 6L9 17l-5-5"></path>
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div class="exec-log-panel hidden" id="execLogPanel">
+          <div class="exec-log-header">
+            <span>실행 로그</span>
+            <span class="exec-log-badge running" id="execLogBadge">대기</span>
+          </div>
+          <pre class="exec-log-box" id="execLogBox"></pre>
+          <div class="exec-respond-panel" id="execRespondPanel">
+            <div class="exec-respond-label">Cursor가 답변을 기다리는 중</div>
+            <div class="exec-respond-question" id="execRespondQuestion"></div>
+            <div class="exec-respond-form">
+              <textarea id="execRespondInput" rows="2" placeholder="Cursor에 보낼 답변 (Enter: 전송, Shift+Enter: 줄바꿈)"></textarea>
+              <button class="btn-primary" id="execRespondBtn" type="button">전송</button>
+            </div>
           </div>
         </div>
         <div class="prompt-actions">
-          <button class="btn-primary" id="suggestBtn" type="button">프롬프트 제안</button>
-          <button class="btn-success" id="copyBtn" type="button" disabled>프롬프트 복사</button>
+          <button class="btn-suggest" id="suggestBtn" type="button">프롬프트 제안</button>
+          <button class="btn-primary btn-execute" id="executeBtn" type="button" disabled>Cursor 실행</button>
           <div class="status" id="status"></div>
         </div>
       </div>
@@ -489,7 +1009,15 @@
     const inputEl = document.getElementById("input");
     const sendBtn = document.getElementById("sendBtn");
     const suggestBtn = document.getElementById("suggestBtn");
+    const executeBtn = document.getElementById("executeBtn");
     const copyBtn = document.getElementById("copyBtn");
+    const execLogPanel = document.getElementById("execLogPanel");
+    const execLogBox = document.getElementById("execLogBox");
+    const execLogBadge = document.getElementById("execLogBadge");
+    const execRespondPanel = document.getElementById("execRespondPanel");
+    const execRespondQuestion = document.getElementById("execRespondQuestion");
+    const execRespondInput = document.getElementById("execRespondInput");
+    const execRespondBtn = document.getElementById("execRespondBtn");
     const promptBox = document.getElementById("promptBox");
     const promptPlaceholder = document.getElementById("promptPlaceholder");
     const promptContent = document.getElementById("promptContent");
@@ -505,16 +1033,53 @@
     let currentTargetMode = "plan";
     let sending = false;
     let suggesting = false;
+    let executing = false;
+    let respondingToJob = false;
+    let activeJobId = null;
+    let logEventSource = null;
     let readonlyMode = false;
     let serverSessionId = store.activeId;
     let pendingResumeSession = null;
+    let cursorExecutionCompleted = false;
 
-    marked.setOptions({ breaks: true, gfm: true });
+    const INPUT_MAX_HEIGHT = 200;
+
+    function getInputLineHeight() {
+      const style = getComputedStyle(inputEl);
+      const parsed = parseFloat(style.lineHeight);
+      return Number.isFinite(parsed) ? parsed : 22;
+    }
+
+    function resetCursorExecutionFlag() {
+      cursorExecutionCompleted = false;
+    }
+
+    function markCursorExecutionCompleted() {
+      cursorExecutionCompleted = true;
+    }
+
+    function resizeInput() {
+      const lineHeight = getInputLineHeight();
+      inputEl.style.height = `${lineHeight}px`;
+      const scrollHeight = inputEl.scrollHeight;
+      const height = Math.max(lineHeight, Math.min(scrollHeight, INPUT_MAX_HEIGHT));
+      inputEl.style.height = `${height}px`;
+      inputEl.style.overflowY = scrollHeight > INPUT_MAX_HEIGHT ? "auto" : "hidden";
+    }
+
+    function clearInput() {
+      inputEl.value = "";
+      resizeInput();
+    }
 
     function loadStore() {
       try {
         const raw = localStorage.getItem(STORAGE_KEY);
-        if (raw) return JSON.parse(raw);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          migrateStore(parsed);
+          return parsed;
+        }
       } catch (_) {}
       const id = crypto.randomUUID();
       return {
@@ -525,9 +1090,27 @@
           messages: [],
           cursorPrompt: null,
           cursorTargetMode: "plan",
+          cursorRuns: [],
           updatedAt: Date.now(),
         }],
       };
+    }
+
+    function migrateStore(parsed) {
+      if (!parsed || !Array.isArray(parsed.sessions)) return;
+      for (const session of parsed.sessions) {
+        if (!Array.isArray(session.cursorRuns)) {
+          session.cursorRuns = [];
+          continue;
+        }
+        for (const run of session.cursorRuns) {
+          if (run.status === "running" || run.status === "waiting_for_user") {
+            run.status = "interrupted";
+            run.question = null;
+            run.finishedAt = run.finishedAt || Date.now();
+          }
+        }
+      }
     }
 
     function saveStore() {
@@ -567,6 +1150,46 @@
 
     function renderMarkdown(text) {
       return marked.parse(text || "");
+    }
+
+    function collectFencedCodeBlocks(text) {
+      const blocks = [];
+      const pattern = /```([^\n`]*)\r?\n([\s\S]*?)```/g;
+      let match;
+      while ((match = pattern.exec(text)) !== null) {
+        const lang = (match[1] || "").trim().toLowerCase();
+        const content = match[2].replace(/\s+$/, "").trim();
+        if (content.length < 10) continue;
+        blocks.push({ lang, content });
+      }
+      return blocks;
+    }
+
+    function extractPromptFromCodeBlocks(text) {
+      if (!text || typeof text !== "string") return null;
+
+      const blocks = collectFencedCodeBlocks(text);
+      if (!blocks.length) return null;
+
+      const markdown = blocks.find((b) => b.lang === "markdown" || b.lang === "md");
+      if (markdown) return markdown.content;
+
+      const prompt = blocks.find((b) => b.lang === "prompt" || b.lang === "text");
+      if (prompt) return prompt.content;
+
+      const untagged = blocks.filter((b) => !b.lang);
+      if (untagged.length) return untagged[untagged.length - 1].content;
+
+      return null;
+    }
+
+    function syncPromptFromReply(reply, targetMode = "plan") {
+      const extracted = extractPromptFromCodeBlocks(reply);
+      if (!extracted) return false;
+      setPrompt(extracted, targetMode);
+      openRight();
+      setStatus("대화 답변의 코드 블록에서 프롬프트를 동기화했습니다.", "success");
+      return true;
     }
 
     function clearMessagesDom() {
@@ -662,6 +1285,8 @@
       session.cursorTargetMode = currentTargetMode;
       saveStore();
 
+      resetCopyButtonState();
+
       if (prompt) {
         promptPlaceholder.hidden = true;
         promptContent.hidden = false;
@@ -669,6 +1294,7 @@
         promptBox.classList.remove("empty");
         modeBadge.textContent = MODE_LABELS[currentTargetMode] || `${currentTargetMode} 모드`;
         modeBadge.classList.remove("hidden");
+        executeBtn.disabled = false;
         copyBtn.disabled = false;
       } else {
         promptPlaceholder.hidden = false;
@@ -676,6 +1302,7 @@
         promptContent.innerHTML = "";
         promptBox.classList.add("empty");
         modeBadge.classList.add("hidden");
+        executeBtn.disabled = true;
         copyBtn.disabled = true;
       }
     }
@@ -738,15 +1365,31 @@
 
       store.activeId = sessionId;
       saveStore();
+      resetCursorExecutionFlag();
       renderSessionList();
       renderMessages(session.messages);
       setPrompt(session.cursorPrompt, session.cursorTargetMode || "plan");
+      restoreExecLogsForActiveSession();
       setStatus("");
 
       if (sessionId === serverSessionId) {
         exitReadonly();
       } else {
         enterReadonly(session);
+      }
+    }
+
+    function restoreExecLogsForActiveSession() {
+      stopExecLogStream();
+      hideRespondPanel();
+      activeJobId = null;
+      const session = getActiveSession();
+      const runs = Array.isArray(session.cursorRuns) ? session.cursorRuns : [];
+      if (runs.length > 0) {
+        showExecLogPanel();
+        renderExecLogs(runs);
+      } else {
+        hideExecLogPanel();
       }
     }
 
@@ -767,6 +1410,7 @@
         });
         exitReadonly();
         serverSessionId = session.id;
+        resetCursorExecutionFlag();
         setStatus("대화를 이어갈 준비가 되었습니다.", "success");
       } catch (err) {
         setStatus(err.message, "error");
@@ -780,6 +1424,10 @@
         session.updatedAt = Date.now();
       }
 
+      stopExecLogStream();
+      hideRespondPanel();
+      activeJobId = null;
+
       const id = crypto.randomUUID();
       store.sessions.unshift({
         id,
@@ -787,6 +1435,7 @@
         messages: [],
         cursorPrompt: null,
         cursorTargetMode: "plan",
+        cursorRuns: [],
         updatedAt: Date.now(),
       });
       store.activeId = id;
@@ -797,11 +1446,13 @@
         await fetch("/reset", { method: "POST" });
       } catch (_) {}
 
+      resetCursorExecutionFlag();
       exitReadonly();
       renderSessionList();
       renderMessages([]);
       setPrompt(null);
-      setStatus("새 대화를 시작합니다.", "success");
+      hideExecLogPanel();
+      setStatus("새 채팅을 시작합니다.", "success");
       inputEl.focus();
     }
 
@@ -836,14 +1487,19 @@
       const session = getActiveSession();
       session.messages.push({ role: "user", content: message });
       appendMessageDom({ content: message, role: "user" });
-      inputEl.value = "";
+      clearInput();
       persistActiveSession();
+
+      const includeCursorExecutionCompleted = cursorExecutionCompleted;
 
       try {
         const res = await fetch("/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message }),
+          body: JSON.stringify({
+            message,
+            cursor_execution_completed: includeCursorExecutionCompleted,
+          }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || "채팅 요청 실패");
@@ -860,8 +1516,15 @@
         });
         persistActiveSession();
 
+        if (includeCursorExecutionCompleted) {
+          resetCursorExecutionFlag();
+        }
+
         if (data.ready_for_prompt) {
-          await suggestPrompt();
+          const synced = syncPromptFromReply(data.reply, data.target_mode || "plan");
+          if (!synced) {
+            await suggestPrompt();
+          }
         }
       } catch (err) {
         appendMessageDom({ content: `오류: ${err.message}`, role: "bot" });
@@ -873,47 +1536,474 @@
       }
     }
 
-    async function copyPrompt() {
-      if (!currentPrompt) return;
+    let copyResetTimer = null;
 
-      setStatus("복사 중...", "");
+    function resetCopyButtonState() {
+      if (copyResetTimer) {
+        clearTimeout(copyResetTimer);
+        copyResetTimer = null;
+      }
+      copyBtn.classList.remove("copied");
+      copyBtn.title = "복사";
+      copyBtn.setAttribute("aria-label", "복사");
+    }
+
+    function showCopySuccessState() {
+      resetCopyButtonState();
+      copyBtn.classList.add("copied");
+      copyBtn.title = "복사됨";
+      copyBtn.setAttribute("aria-label", "복사됨");
+      copyResetTimer = setTimeout(resetCopyButtonState, 2000);
+    }
+
+    async function copyPrompt() {
+      if (!currentPrompt || copyBtn.disabled) return;
 
       try {
         await navigator.clipboard.writeText(currentPrompt);
+        showCopySuccessState();
         const modeLabel = MODE_LABELS[currentTargetMode] || currentTargetMode;
         setStatus(
           `${modeLabel} 프롬프트를 복사했습니다. Cursor Composer에 붙여넣으세요.`,
           "success",
         );
       } catch (err) {
+        resetCopyButtonState();
         setStatus(err.message || "클립보드 복사에 실패했습니다.", "error");
       }
     }
 
-    function toggleLeft() {
-      layoutEl.classList.toggle("left-collapsed");
+    async function executePrompt() {
+      if (!currentPrompt || executing) return;
+
+      executing = true;
+      executeBtn.disabled = true;
+      setStatus("Cursor CLI 실행 중...", "");
+      openRight();
+      stopExecLogStream();
+      hideRespondPanel();
+      activeJobId = null;
+      showExecLogPanel();
+
+      const session = getActiveSession();
+      if (!Array.isArray(session.cursorRuns)) session.cursorRuns = [];
+
+      const run = {
+        id: crypto.randomUUID(),
+        jobId: null,
+        targetMode: currentTargetMode,
+        startedAt: Date.now(),
+        finishedAt: null,
+        status: "running",
+        logText: "",
+      };
+      session.cursorRuns.push(run);
+      persistActiveSession();
+      renderExecLogs(session.cursorRuns);
+
+      try {
+        const res = await fetch("/execute-prompt", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prompt: currentPrompt,
+            target_mode: currentTargetMode,
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          if (res.status === 404) {
+            throw new Error(
+              "/execute-prompt API를 찾을 수 없습니다. Supervisor를 재시작한 뒤 다시 시도하세요.",
+            );
+          }
+          const detail = data.detail;
+          const message = Array.isArray(detail)
+            ? detail.map((item) => item.msg || item).join(", ")
+            : detail;
+          throw new Error(message || "Cursor CLI 실행에 실패했습니다.");
+        }
+        setStatus(data.message || "Cursor CLI 실행을 시작했습니다.", "success");
+        if (data.job_id) {
+          run.jobId = data.job_id;
+          activeJobId = data.job_id;
+          persistActiveSession();
+          startExecLogStream(data.job_id, run, session.id);
+        }
+      } catch (err) {
+        run.status = "failed";
+        run.finishedAt = Date.now();
+        run.logText = `${run.logText ? run.logText + "\n" : ""}[오류] ${err.message}`;
+        persistActiveSession();
+        if (store.activeId === session.id) {
+          renderExecLogs(session.cursorRuns);
+        }
+        setStatus(err.message, "error");
+      } finally {
+        executing = false;
+        if (currentPrompt) executeBtn.disabled = false;
+      }
+    }
+
+    function stopExecLogStream() {
+      if (logEventSource) {
+        logEventSource.close();
+        logEventSource = null;
+      }
+    }
+
+    function showExecLogPanel() {
+      execLogPanel.classList.remove("hidden");
+    }
+
+    function hideExecLogPanel() {
+      execLogPanel.classList.add("hidden");
+      execLogBox.textContent = "";
+      setExecLogBadge("running", "대기");
+    }
+
+    function resetExecLogPanel() {
+      stopExecLogStream();
+      execLogBox.textContent = "";
+      setExecLogBadge("running", "대기");
+    }
+
+    function setExecLogBadge(status, label) {
+      execLogBadge.className = `exec-log-badge ${status}`;
+      execLogBadge.textContent = label;
+    }
+
+    function appendExecLogLine(line) {
+      if (!line) return;
+      execLogBox.textContent = execLogBox.textContent
+        ? `${execLogBox.textContent}\n${line}`
+        : line;
+      execLogBox.scrollTop = execLogBox.scrollHeight;
+    }
+
+    function formatRunDivider(run, index) {
+      const modeLabel = MODE_LABELS[run.targetMode] || `${run.targetMode || "?"} 모드`;
+      const time = new Date(run.startedAt || Date.now()).toLocaleString("ko-KR", {
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      const statusLabel = ({
+        running: "실행 중",
+        completed: "완료",
+        failed: "실패",
+        interrupted: "중단됨",
+        waiting_for_user: "답변 대기",
+      })[run.status] || run.status || "-";
+      return `────────── 실행 #${index + 1} · ${modeLabel} · ${time} · ${statusLabel} ──────────`;
+    }
+
+    function renderExecLogs(runs) {
+      if (!runs || !runs.length) {
+        execLogBox.textContent = "";
+        setExecLogBadge("running", "대기");
+        return;
+      }
+      const parts = runs.map((run, idx) => {
+        const divider = formatRunDivider(run, idx);
+        const body = (run.logText || "").trim() || "(출력 없음)";
+        return `${divider}\n${body}`;
+      });
+      execLogBox.textContent = parts.join("\n\n");
+      execLogBox.scrollTop = execLogBox.scrollHeight;
+      updateBadgeFromRuns(runs);
+    }
+
+    function updateBadgeFromRuns(runs) {
+      if (!runs || !runs.length) {
+        setExecLogBadge("running", "대기");
+        return;
+      }
+      const last = runs[runs.length - 1];
+      if (last.status === "running") setExecLogBadge("running", "실행 중");
+      else if (last.status === "waiting_for_user") setExecLogBadge("waiting", "답변 대기");
+      else if (last.status === "completed") setExecLogBadge("completed", "완료");
+      else if (last.status === "interrupted") setExecLogBadge("failed", "중단됨");
+      else setExecLogBadge("failed", "실패");
+    }
+
+    function showRespondPanel(question) {
+      execRespondQuestion.textContent =
+        question || "Cursor가 다음 답변을 기다리고 있습니다.";
+      execRespondPanel.classList.add("visible");
+      execRespondInput.value = "";
+      execRespondInput.disabled = false;
+      execRespondBtn.disabled = false;
+      try {
+        execRespondInput.focus();
+      } catch (_) {}
+    }
+
+    function hideRespondPanel() {
+      execRespondPanel.classList.remove("visible");
+      execRespondQuestion.textContent = "";
+      execRespondInput.value = "";
+      execRespondInput.disabled = false;
+      execRespondBtn.disabled = false;
+    }
+
+    async function sendCursorRespond() {
+      const text = execRespondInput.value.trim();
+      if (!text || respondingToJob || !activeJobId) return;
+      respondingToJob = true;
+      execRespondInput.disabled = true;
+      execRespondBtn.disabled = true;
+      setStatus("답변 전송 중...", "");
+
+      try {
+        const res = await fetch(`/execute-jobs/${activeJobId}/respond`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(data.detail || "답변 전송 실패");
+        }
+        hideRespondPanel();
+        setStatus("답변을 전송했습니다. Cursor 응답 대기 중...", "success");
+      } catch (err) {
+        execRespondInput.disabled = false;
+        execRespondBtn.disabled = false;
+        setStatus(err.message, "error");
+      } finally {
+        respondingToJob = false;
+      }
+    }
+
+    function startExecLogStream(jobId, run, sessionId) {
+      stopExecLogStream();
+      if (store.activeId === sessionId) {
+        setExecLogBadge("running", "실행 중");
+      }
+
+      const source = new EventSource(`/execute-jobs/${jobId}/stream`);
+      logEventSource = source;
+
+      const persistRun = () => {
+        const targetSession = store.sessions.find((s) => s.id === sessionId);
+        if (!targetSession) return null;
+        targetSession.updatedAt = Date.now();
+        saveStore();
+        if (store.activeId === sessionId) {
+          renderExecLogs(targetSession.cursorRuns);
+          renderSessionList();
+        }
+        return targetSession;
+      };
+
+      source.onmessage = (event) => {
+        let payload;
+        try {
+          payload = JSON.parse(event.data);
+        } catch (_) {
+          return;
+        }
+
+        if (payload.error) {
+          run.status = "failed";
+          run.finishedAt = Date.now();
+          run.logText = `${run.logText ? run.logText + "\n" : ""}[오류] ${payload.error}`;
+          run.question = null;
+          persistRun();
+          if (store.activeId === sessionId) {
+            hideRespondPanel();
+            setStatus(`Cursor Agent 실행이 실패했습니다.\n${payload.error}`, "error");
+          }
+          stopExecLogStream();
+          return;
+        }
+
+        if (typeof payload.log_text === "string") {
+          run.logText = payload.log_text;
+        }
+
+        if (payload.status === "waiting_for_user") {
+          run.status = "waiting_for_user";
+          run.question = payload.question || "";
+          persistRun();
+          if (store.activeId === sessionId) {
+            activeJobId = jobId;
+            showRespondPanel(run.question);
+            const roundsInfo =
+              typeof payload.rounds_count === "number" && payload.rounds_count > 0
+                ? ` (자동 응답 ${payload.rounds_count}회 진행됨)`
+                : "";
+            setStatus(`사용자 답변이 필요합니다${roundsInfo}.`, "");
+          }
+          return;
+        }
+
+        if (payload.status === "running") {
+          run.status = "running";
+          run.question = null;
+          persistRun();
+          if (store.activeId === sessionId) {
+            hideRespondPanel();
+          }
+          if (!payload.done) return;
+        } else if (typeof payload.log_text === "string") {
+          persistRun();
+        }
+
+        if (payload.done) {
+          run.status = payload.status === "completed" ? "completed" : "failed";
+          run.finishedAt = Date.now();
+          run.question = null;
+          if (payload.status !== "completed" && payload.error) {
+            run.logText = `${run.logText ? run.logText + "\n" : ""}[오류] ${payload.error}`;
+          }
+          persistRun();
+          if (store.activeId === sessionId) {
+            hideRespondPanel();
+            if (run.status === "completed") {
+              markCursorExecutionCompleted();
+              setStatus("Cursor Agent 실행이 완료되었습니다.", "success");
+            } else {
+              const errText = payload.error ? `\n${payload.error}` : "";
+              setStatus(`Cursor Agent 실행이 실패했습니다.${errText}`, "error");
+            }
+          }
+          if (activeJobId === jobId) activeJobId = null;
+          stopExecLogStream();
+        }
+      };
+
+      source.onerror = () => {
+        if (run.status === "running" || run.status === "waiting_for_user") {
+          run.status = "interrupted";
+          run.finishedAt = Date.now();
+          run.question = null;
+          persistRun();
+          if (store.activeId === sessionId) {
+            hideRespondPanel();
+            setStatus("실행 로그 스트림 연결이 끊어졌습니다.", "error");
+          }
+        }
+        if (activeJobId === jobId) activeJobId = null;
+        stopExecLogStream();
+      };
+    }
+
+    function openLeft() {
+      layoutEl.classList.remove("left-collapsed");
       saveUiState();
     }
 
-    function toggleRight() {
-      layoutEl.classList.toggle("right-collapsed");
+    function closeLeft() {
+      layoutEl.classList.add("left-collapsed");
+      saveUiState();
+    }
+
+    function openRight() {
+      layoutEl.classList.remove("right-collapsed");
+      saveUiState();
+    }
+
+    function closeRight() {
+      layoutEl.classList.add("right-collapsed");
       saveUiState();
     }
 
     function initUiState() {
       const ui = loadUiState();
-      if (ui.leftCollapsed) layoutEl.classList.add("left-collapsed");
-      if (ui.rightCollapsed) layoutEl.classList.add("right-collapsed");
+      if (ui.leftCollapsed === false) {
+        layoutEl.classList.remove("left-collapsed");
+      } else {
+        layoutEl.classList.add("left-collapsed");
+      }
+      if (ui.rightCollapsed === false) {
+        layoutEl.classList.remove("right-collapsed");
+      } else {
+        layoutEl.classList.add("right-collapsed");
+      }
+    }
+
+    async function bootstrapFromGenieSession() {
+      const params = new URLSearchParams(window.location.search);
+      const sessionId = params.get("session_id");
+      if (!sessionId) return false;
+
+      try {
+        const res = await fetch(`/sessions/${encodeURIComponent(sessionId)}/bootstrap`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "세션 불러오기 실패");
+
+        const existing = store.sessions.find((s) => s.id === sessionId);
+        if (existing) {
+          existing.title = data.title || existing.title;
+          existing.messages = data.messages || [];
+          existing.updatedAt = Date.now();
+          store.activeId = sessionId;
+        } else {
+          store.sessions.unshift({
+            id: sessionId,
+            title: data.title || "새 대화",
+            messages: data.messages || [],
+            cursorPrompt: null,
+            cursorTargetMode: "plan",
+            cursorRuns: [],
+            updatedAt: Date.now(),
+          });
+          store.activeId = sessionId;
+        }
+
+        serverSessionId = sessionId;
+        saveStore();
+        resetCursorExecutionFlag();
+        exitReadonly();
+        renderSessionList();
+        renderMessages(getActiveSession().messages);
+        setPrompt(null);
+        hideExecLogPanel();
+        restoreExecLogsForActiveSession();
+        setStatus("Genie에서 시작한 대화를 불러왔습니다.", "success");
+
+        if (data.ready_for_prompt) {
+          const botReply = (data.messages || []).find((m) => m.role === "bot");
+          if (botReply) {
+            const synced = syncPromptFromReply(botReply.content, "plan");
+            if (!synced) {
+              await suggestPrompt();
+            }
+          }
+        }
+
+        window.history.replaceState({}, "", window.location.pathname);
+        return true;
+      } catch (err) {
+        setStatus(err.message, "error");
+        window.history.replaceState({}, "", window.location.pathname);
+        return false;
+      }
     }
 
     sendBtn.addEventListener("click", sendMessage);
     suggestBtn.addEventListener("click", suggestPrompt);
+    executeBtn.addEventListener("click", executePrompt);
     copyBtn.addEventListener("click", copyPrompt);
+    execRespondBtn.addEventListener("click", sendCursorRespond);
+    execRespondInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        sendCursorRespond();
+      }
+    });
     document.getElementById("newChatBtn").addEventListener("click", newChat);
-    document.getElementById("toggleLeftBtn").addEventListener("click", toggleLeft);
-    document.getElementById("toggleRightBtn").addEventListener("click", toggleRight);
+    document.getElementById("newChatBtnCollapsed").addEventListener("click", newChat);
+    document.getElementById("openLeftBtn").addEventListener("click", openLeft);
+    document.getElementById("closeLeftBtn").addEventListener("click", closeLeft);
+    document.getElementById("openRightBtn").addEventListener("click", openRight);
+    document.getElementById("closeRightBtn").addEventListener("click", closeRight);
     resumeBtn.addEventListener("click", resumeSession);
 
+    inputEl.addEventListener("input", resizeInput);
     inputEl.addEventListener("keydown", (e) => {
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
@@ -922,11 +2012,17 @@
     });
 
     initUiState();
-    renderSessionList();
-    const active = getActiveSession();
-    renderMessages(active.messages);
-    setPrompt(active.cursorPrompt, active.cursorTargetMode || "plan");
-    inputEl.focus();
+    bootstrapFromGenieSession().then((bootstrapped) => {
+      if (!bootstrapped) {
+        renderSessionList();
+        const active = getActiveSession();
+        renderMessages(active.messages);
+        setPrompt(active.cursorPrompt, active.cursorTargetMode || "plan");
+        restoreExecLogsForActiveSession();
+      }
+      resizeInput();
+      inputEl.focus();
+    });
   </script>
 </body>
 </html>

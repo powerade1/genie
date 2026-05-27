@@ -1,3 +1,4 @@
+# DEPRECATED: GUI(osascript) 기반 Cursor 조작. supervisor/cursor_cli.py의 CLI 경로로 대체됨.
 import subprocess
 import time
 

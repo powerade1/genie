@@ -6,6 +6,7 @@ from google import genai
 from google.genai import types
 
 from config import (
+    CURSOR_FOLLOWUP_INSTRUCTION,
     SUGGEST_PROMPT_INSTRUCTION,
     SUPERVISOR_MODEL,
 )
@@ -14,6 +15,7 @@ from supervisor.context import build_system_instruction
 _client: genai.Client | None = None
 _chat = None
 _message_log: list[tuple[str, str]] = []
+_executed_log_end: int = 0
 
 VALID_TARGET_MODES = ("agent", "plan", "debug", "ask")
 
@@ -27,6 +29,16 @@ class ChatResponse(TypedDict):
 class SuggestResponse(TypedDict):
     cursor_prompt: str
     target_mode: str
+
+
+class FollowupResponse(TypedDict):
+    action: str  # "ask_user" | "auto_continue" | "finish"
+    question: str
+    auto_answer: str
+    reasoning: str
+
+
+VALID_FOLLOWUP_ACTIONS = ("ask_user", "auto_continue", "finish")
 
 
 CHAT_SCHEMA = types.Schema(
@@ -64,6 +76,30 @@ SUGGEST_SCHEMA = types.Schema(
     required=["cursor_prompt", "target_mode"],
 )
 
+FOLLOWUP_SCHEMA = types.Schema(
+    type=types.Type.OBJECT,
+    properties={
+        "action": types.Schema(
+            type=types.Type.STRING,
+            enum=list(VALID_FOLLOWUP_ACTIONS),
+            description="후속 액션 (ask_user | auto_continue | finish)",
+        ),
+        "question": types.Schema(
+            type=types.Type.STRING,
+            description="ask_user일 때 사용자에게 보여줄 한국어 질문",
+        ),
+        "auto_answer": types.Schema(
+            type=types.Type.STRING,
+            description="auto_continue일 때 Cursor에 보낼 한국어 답변",
+        ),
+        "reasoning": types.Schema(
+            type=types.Type.STRING,
+            description="판단 근거 (한국어 간결)",
+        ),
+    },
+    required=["action", "reasoning"],
+)
+
 
 def ensure_api_key() -> None:
     if not os.environ.get("GEMINI_API_KEY"):
@@ -93,9 +129,10 @@ def _create_chat():
 
 
 def reset_chat() -> None:
-    global _chat, _message_log
+    global _chat, _message_log, _executed_log_end
     _chat = _create_chat()
     _message_log = []
+    _executed_log_end = 0
 
 
 def _get_chat():
@@ -141,17 +178,27 @@ def _parse_suggest_response(text: str) -> SuggestResponse:
     }
 
 
-def _format_history() -> str:
-    if not _message_log:
+def _format_history(messages: list[tuple[str, str]] | None = None) -> str:
+    log = _message_log if messages is None else messages
+    if not log:
         return "(대화 없음)"
     lines = []
-    for role, content in _message_log:
+    for role, content in log:
         label = "사용자" if role == "user" else "Supervisor"
         lines.append(f"{label}: {content}")
     return "\n\n".join(lines)
 
 
-def chat_send(message: str) -> ChatResponse:
+def _active_message_log() -> list[tuple[str, str]]:
+    return _message_log[_executed_log_end:]
+
+
+def chat_send(message: str, *, cursor_execution_completed: bool = False) -> ChatResponse:
+    global _executed_log_end
+
+    if cursor_execution_completed:
+        _executed_log_end = len(_message_log)
+
     chat = _get_chat()
     _message_log.append(("user", message))
     response = chat.send_message(message)
@@ -168,12 +215,93 @@ def seed_chat(context: str) -> None:
     _message_log.append(("user", f"[이전 대화 요약]\n{context}"))
 
 
+def _parse_followup_response(text: str) -> FollowupResponse:
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError as error:
+        raise ValueError(f"Followup JSON 파싱 실패: {error}") from error
+
+    action = (data.get("action") or "").strip().lower()
+    if action not in VALID_FOLLOWUP_ACTIONS:
+        action = "finish"
+
+    return {
+        "action": action,
+        "question": (data.get("question") or "").strip(),
+        "auto_answer": (data.get("auto_answer") or "").strip(),
+        "reasoning": (data.get("reasoning") or "").strip(),
+    }
+
+
+def analyze_cursor_followup(
+    *,
+    original_prompt: str,
+    target_mode: str,
+    cursor_output: str,
+    previous_rounds: list[dict] | None = None,
+) -> FollowupResponse:
+    """Cursor Agent 마지막 응답을 분석해 후속 액션을 결정한다."""
+    cursor_output = (cursor_output or "").strip()
+    if not cursor_output:
+        return {
+            "action": "finish",
+            "question": "",
+            "auto_answer": "",
+            "reasoning": "Cursor 응답이 비어 있어 종료.",
+        }
+
+    rounds_text = ""
+    if previous_rounds:
+        rendered = []
+        for idx, round_info in enumerate(previous_rounds, start=1):
+            kind = round_info.get("kind", "?")
+            text = (round_info.get("text") or "").strip()
+            if not text:
+                continue
+            rendered.append(f"[라운드 {idx} · {kind}]\n{text}")
+        if rendered:
+            rounds_text = "## 이전 라운드\n" + "\n\n".join(rendered) + "\n\n"
+
+    prompt = (
+        f"## 최초 프롬프트 ({target_mode} 모드)\n{original_prompt}\n\n"
+        f"{rounds_text}"
+        f"## Cursor 마지막 응답\n{cursor_output}\n\n"
+        f"## 지시\n{CURSOR_FOLLOWUP_INSTRUCTION}"
+    )
+
+    response = get_client().models.generate_content(
+        model=SUPERVISOR_MODEL,
+        contents=prompt,
+        config=types.GenerateContentConfig(
+            system_instruction=build_system_instruction(),
+            response_mime_type="application/json",
+            response_schema=FOLLOWUP_SCHEMA,
+        ),
+    )
+
+    text = response.text
+    if not text:
+        raise ValueError("Followup 분석 응답이 비어 있습니다.")
+
+    return _parse_followup_response(text)
+
+
 def suggest_prompt() -> SuggestResponse:
-    if not _message_log:
+    active_log = _active_message_log()
+    if not active_log:
         raise ValueError("대화가 없습니다. 먼저 Supervisor와 대화하세요.")
 
-    history = _format_history()
+    history = _format_history(active_log)
+    executed_note = ""
+    if _executed_log_end > 0:
+        executed_note = (
+            "## 참고\n"
+            "이전 대화에서 합의된 작업은 Cursor에서 이미 실행되었습니다. "
+            "아래 기록만 반영하고, 완료된 작업을 프롬프트에 중복 포함하지 마세요.\n\n"
+        )
+
     prompt = (
+        f"{executed_note}"
         f"## 대화 기록\n{history}\n\n"
         f"## 지시\n{SUGGEST_PROMPT_INSTRUCTION}"
     )

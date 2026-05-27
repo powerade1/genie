@@ -23,8 +23,8 @@ macOS **음성 비서 Genie**와, Cursor 협업용 **Supervisor 웹 UI**(Gemini)
 | --- | --- |
 | 역할 | 아키텍트형 **Gemini 3.5 Flash** — 토론 → Cursor용 실행 프롬프트 생성 |
 | UI | 3단: 세션(localStorage) · 채팅(thinking 접기) · Cursor 프롬프트 패널 |
-| API | `POST /chat` · `/suggest-prompt` · `/reset` · `/seed` |
-| 프롬프트 전달 | **클립보드 복사 버튼** (osascript 자동 주입은 폐기 — 포커스·세션·모드 불안정) |
+| API | `POST /chat` · `/suggest-prompt` · `/execute-prompt` · `GET /execute-jobs/{id}` · `/execute-jobs/{id}/stream` · `/reset` · `/seed` |
+| 프롬프트 전달 | **[Cursor 실행]** → `cursor agent --print` CLI · 우측 **실행 로그** 패널(SSE 스트리밍) |
 | 컨텍스트 | 세션 시작(`reset_chat`)마다 이 파일 로드 (`supervisor/context.py`) |
 | suggest JSON | `cursor_prompt` + `target_mode` (`plan` \| `agent` \| `debug` \| `ask`) |
 
@@ -44,4 +44,5 @@ macOS **음성 비서 Genie**와, Cursor 협업용 **Supervisor 웹 UI**(Gemini)
 | 2025-05 | Option+Space, activation chime, `search_web`/`play_youtube` |
 | 2025-05 | Supervisor Phase 1: FastAPI 3단 UI, suggest/reset/seed, JSON thinking |
 | 2025-05 | Cursor 자동 주입(osascript·모드 매칭) 시도 → **복사 버튼**으로 대체 |
+| 2025-05 | Cursor CLI 실행(`cursor agent`) + `/execute-prompt` API · UI [Cursor 실행] 버튼 |
 | 2025-05 | 컨텍스트를 `SUPERVISOR_CONTEXT.md`로 분리 — PRD와 독립 관리 |
