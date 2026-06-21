@@ -6,6 +6,7 @@ soundfile
 pyyaml
 onnxruntime
 torch
+resemblyzer
 typing_extensions>=4.14.0
 pydantic>=2.11,<3
 tavily-python

@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.woojin.genie.wake</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/woojin/anaconda3/envs/genie/bin/python</string>
+        <string>/Users/woojin/Desktop/DEV/2_active/genie/scripts/genie_wake_supervisor.py</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/woojin/Desktop/DEV/2_active/genie</string>
+
+    <!-- watcher 자체는 항상 살아있어야 한다. 죽으면 launchd 가 즉시 살림. -->
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>ThrottleInterval</key>
+    <integer>5</integer>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/Users/woojin/anaconda3/envs/genie/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <key>HOME</key>
+        <string>/Users/woojin</string>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>/Users/woojin/Desktop/DEV/2_active/genie/logs/wake.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/woojin/Desktop/DEV/2_active/genie/logs/wake.err.log</string>
+</dict>
+</plist>

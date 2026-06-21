@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import os
 import sys
 import time
@@ -9,13 +10,19 @@ from google import genai
 from google.genai import types
 
 from actions import apps, browser, custom_actions, files, supervisor, system, web, youtube
+from audio.echo_cancel import get_echo_canceller
+from audio.speaker import LiveSpeakerGate, get_speaker_verifier
 from config import (
     CHUNK_SIZE,
+    ECHO_CANCELLATION_ENABLED,
     GEMINI_MODEL,
     GEMINI_VOICE,
     IDLE_TIMEOUT_SECONDS,
+    LIVE_SPEAKER_GATE_ENABLED,
+    LIVE_SPEAKER_GATE_HOLD_SEC,
     RECEIVE_SAMPLE_RATE,
     SEND_SAMPLE_RATE,
+    SPEAKER_VERIFICATION_ENABLED,
     SYSTEM_PROMPT,
     VAD_END_OF_SPEECH_SENSITIVITY,
     VAD_SILENCE_DURATION_MS,
@@ -31,6 +38,110 @@ if sys.version_info < (3, 11, 0):
 
 FORMAT = pyaudio.paInt16
 CHANNELS = 1
+
+
+def _print_session_error(error: BaseException, prefix: str = "오류") -> None:
+    """Live API 세션 에러를 사용자에게 의미있게 출력한다.
+
+    1008/1011 등 모호한 close 코드 + ``credit`` / ``quota`` / ``billing`` 같은
+    힌트가 메시지에 보이면 결제 만료 가능성을 함께 안내한다.
+    """
+    text = str(error)
+    print(f"\n[session] {prefix}: {text}", flush=True)
+
+    lower = text.lower()
+    hint = None
+    if any(token in lower for token in ("credit", "depleted", "billing", "prepayment")):
+        hint = (
+            "  → Google AI Studio 결제 잔액이 부족할 수 있습니다. "
+            "https://ai.studio/projects 에서 결제를 갱신하세요."
+        )
+    elif "quota" in lower or "rate" in lower:
+        hint = "  → API quota 또는 rate limit 에 걸렸을 수 있습니다."
+    elif "1008" in text and "implemented" in lower:
+        # 결제 만료가 1008 으로 위장되어 오는 경우가 흔하다.
+        hint = (
+            "  → 1008 close 는 보통 결제 잔액 만료 또는 모델/리전 미지원이 원인입니다. "
+            "AI Studio 결제 상태를 먼저 확인하세요: https://ai.studio/projects"
+        )
+    elif "permission" in lower or "unauthorized" in lower or "401" in text or "403" in text:
+        hint = "  → API 키 권한 또는 만료를 확인하세요 (.env 의 GEMINI_API_KEY)."
+
+    if hint:
+        print(hint, flush=True)
+
+
+def _is_graceful_close_error(error: BaseException) -> bool:
+    """의도적/정상 세션 종료 직후 서버가 보내는 close 를 구분한다."""
+    text = str(error).lower()
+    return any(
+        token in text
+        for token in (
+            "1000",
+            "1001",
+            "1008",
+            "closed",
+            "cancelled",
+            "connection reset",
+            "not connected",
+        )
+    )
+
+
+@contextlib.contextmanager
+def _suppress_native_streams():
+    """C 레벨 fprintf(stdout/stderr) 출력을 잠깐 가린다.
+
+    종료 시 PortAudio 가 ``||PaMacCore (AUHAL)|| Error on line 2796: err='-50'``
+    같은 메시지를 직접 출력하는데, macOS 빌드에서는 의외로 **stdout** 으로 가는
+    경우가 있어서 fd 1, 2 를 모두 가려야 안전하다 (Python `print` 와는 무관한
+    fd redirection). cleanup 구간에서만 사용한다.
+    """
+    devnulls: dict[int, int | None] = {1: None, 2: None}
+    saved: dict[int, int | None] = {1: None, 2: None}
+    try:
+        sys.stdout.flush()
+    except Exception:
+        pass
+    try:
+        sys.stderr.flush()
+    except Exception:
+        pass
+    try:
+        for fd in (1, 2):
+            try:
+                devnulls[fd] = os.open(os.devnull, os.O_WRONLY)
+                saved[fd] = os.dup(fd)
+                os.dup2(devnulls[fd], fd)
+            except OSError:
+                pass
+        yield
+    finally:
+        try:
+            sys.stdout.flush()
+        except Exception:
+            pass
+        try:
+            sys.stderr.flush()
+        except Exception:
+            pass
+        for fd in (1, 2):
+            saved_fd = saved[fd]
+            if saved_fd is not None:
+                try:
+                    os.dup2(saved_fd, fd)
+                except OSError:
+                    pass
+                try:
+                    os.close(saved_fd)
+                except OSError:
+                    pass
+            dn = devnulls[fd]
+            if dn is not None:
+                try:
+                    os.close(dn)
+                except OSError:
+                    pass
 
 TOOLS = [
     {
@@ -185,8 +296,9 @@ TOOLS = [
     {
         "name": "end_session",
         "description": (
-            "사용자가 대화를 끝내려는 의도(예: '끝', '그만', '고마워', "
-            "'잘 가', '됐어')를 보이면 호출합니다."
+            "사용자가 대화를 끝내려는 의도(예: '끝', '그만', '마무리', '고마워', "
+            "'됐어')를 보이면, 마지막 인사를 말한 **후** 호출합니다. "
+            "인사와 동시에 호출하지 마세요."
         ),
         "parameters": {"type": "object", "properties": {}},
     },
@@ -225,10 +337,16 @@ def get_client():
 class LiveSession:
     # 마지막 청크가 스피커 버퍼에서 빠져나가는 짧은 여유 시간
     _PLAYBACK_TAIL_SEC = 0.3
+    # end_session 마지막 인사가 스피커 버퍼에서 완전히 나갈 때까지 추가 대기
+    _END_SESSION_PLAYBACK_TAIL_SEC = 1.2
+    # end_session 재생 drain 최대 대기 (초)
+    _END_SESSION_DRAIN_TIMEOUT_SEC = 20.0
+    # tool_call 이 인사 오디오보다 먼저 올 때 남은 청크를 받을 최소 대기
+    _END_SESSION_MIN_WAIT_SEC = 1.5
     # 스피커→마이크 에코로 재응답하지 않도록 재생 후 추가 음소거 시간
     _PLAYBACK_MUTE_TAIL_SEC = 1.0
 
-    def __init__(self):
+    def __init__(self, *, speaker_gate_warmup: bool = False):
         self.pya = pyaudio.PyAudio()
         self.session = None
         self.audio_stream = None
@@ -240,8 +358,55 @@ class LiveSession:
         self._turn_complete_event = asyncio.Event()
         self._last_activity_ts = time.monotonic()
         self._end_requested = False
+        self._end_finish_started = False
+        self._end_requested_at = 0.0
         # True이면 마이크 입력 대신 무음 전송 (스피커 에코 방지)
         self._mute_mic = False
+        self._speaker_gate: LiveSpeakerGate | None = None
+        self._speaker_gate_warmup = speaker_gate_warmup
+        self._echo = get_echo_canceller()
+
+    async def _wait_for_playback_drain(
+        self,
+        *,
+        tail_sec: float | None = None,
+        timeout_sec: float | None = None,
+    ) -> None:
+        """스피커 큐가 비워질 때까지 기다린다 (end_session 마지막 인사용)."""
+        tail = self._END_SESSION_PLAYBACK_TAIL_SEC if tail_sec is None else tail_sec
+        timeout = (
+            self._END_SESSION_DRAIN_TIMEOUT_SEC
+            if timeout_sec is None
+            else timeout_sec
+        )
+        deadline = time.monotonic() + timeout
+        empty_since: float | None = None
+        while time.monotonic() < deadline:
+            if self.audio_in_queue is None or self.audio_in_queue.empty():
+                if empty_since is None:
+                    empty_since = time.monotonic()
+                elif time.monotonic() - empty_since >= 0.6:
+                    await asyncio.sleep(self._PLAYBACK_MUTE_TAIL_SEC + tail)
+                    return
+            else:
+                empty_since = None
+            await asyncio.sleep(0.05)
+
+    async def _finish_end_session(self) -> None:
+        """end_session: 마지막 음성 재생 후 조용히 세션을 닫는다."""
+        if self.done.is_set() or self._end_finish_started:
+            return
+        self._end_finish_started = True
+        try:
+            if self._end_requested_at:
+                remaining = self._END_SESSION_MIN_WAIT_SEC - (
+                    time.monotonic() - self._end_requested_at
+                )
+                if remaining > 0:
+                    await asyncio.sleep(remaining)
+            await self._wait_for_playback_drain()
+        finally:
+            self.done.set()
 
     async def listen_audio(self):
         mic_info = self.pya.get_default_input_device_info()
@@ -271,13 +436,47 @@ class LiveSession:
 
     async def send_realtime(self):
         while not self.done.is_set():
-            msg = await self.out_queue.get()
+            try:
+                msg = await self.out_queue.get()
+            except asyncio.CancelledError:
+                return
+            if self.done.is_set():
+                return
             if self._mute_mic and isinstance(msg, dict) and msg.get("data"):
                 msg = {
                     "data": b"\x00" * len(msg["data"]),
                     "mime_type": msg.get("mime_type", "audio/pcm"),
                 }
-            await self.session.send_realtime_input(audio=msg)
+            elif (
+                ECHO_CANCELLATION_ENABLED
+                and self._echo.enabled
+                and isinstance(msg, dict)
+                and msg.get("data")
+            ):
+                msg = {
+                    "data": self._echo.process_pcm16(msg["data"]),
+                    "mime_type": msg.get("mime_type", "audio/pcm"),
+                }
+            elif (
+                self._speaker_gate is not None
+                and self._speaker_gate.enabled
+                and isinstance(msg, dict)
+                and msg.get("data")
+            ):
+                filtered = self._speaker_gate.filter_chunk(msg["data"])
+                if filtered != msg["data"]:
+                    msg = {
+                        "data": filtered,
+                        "mime_type": msg.get("mime_type", "audio/pcm"),
+                    }
+            try:
+                await self.session.send_realtime_input(audio=msg)
+            except asyncio.CancelledError:
+                return
+            except Exception:
+                if self.done.is_set() or self._end_requested:
+                    return
+                raise
 
     def _extract_audio(self, response) -> bytes | None:
         server_content = response.server_content
@@ -308,13 +507,29 @@ class LiveSession:
                         self._last_activity_ts = time.monotonic()
 
                     if response.tool_call:
-                        # 함수 호출 turn: 호출 전 음성은 재생하지 않음 (결과 후 한 번만 말하도록)
-                        while not self.audio_in_queue.empty():
-                            self.audio_in_queue.get_nowait()
+                        function_calls = list(response.tool_call.function_calls)
+                        end_session_requested = any(
+                            fc.name == "end_session" for fc in function_calls
+                        )
+                        if end_session_requested:
+                            # send_tool_response 를 end_session 에 보내면 서버가 즉시
+                            # WebSocket 을 닫아(1008) 마지막 인사 음성이 끊긴다.
+                            # 플래그만 세우고 tool response 는 보내지 않는다.
+                            self._end_requested = True
+                            self._end_requested_at = time.monotonic()
 
-                        end_session_requested = False
+                        # end_session 단독 호출이면 그 직전 발화("알겠습니다" 등)가
+                        # 마지막 인사 그 자체이므로 큐를 비우지 않는다.
+                        end_session_only = (
+                            len(function_calls) == 1
+                            and function_calls[0].name == "end_session"
+                        )
+                        if not end_session_only:
+                            while not self.audio_in_queue.empty():
+                                self.audio_in_queue.get_nowait()
+
                         function_responses = []
-                        for function_call in response.tool_call.function_calls:
+                        for function_call in function_calls:
                             func_name = function_call.name
                             args = dict(function_call.args or {})
                             print(f"\n[실행]: {func_name}({args})")
@@ -330,8 +545,9 @@ class LiveSession:
                             else:
                                 result = f"알 수 없는 함수: {func_name}"
 
+                            # end_session 은 서버에 응답을 보내지 않는다 (위 주석).
                             if func_name == "end_session":
-                                end_session_requested = True
+                                continue
 
                             function_responses.append(
                                 types.FunctionResponse(
@@ -342,11 +558,18 @@ class LiveSession:
                             )
 
                         if function_responses:
-                            await self.session.send_tool_response(function_responses=function_responses)
+                            await self.session.send_tool_response(
+                                function_responses=function_responses
+                            )
 
                         if end_session_requested:
-                            print("[end_session] 모델이 종료를 요청했습니다. 마지막 응답까지 재생 후 종료합니다.")
-                            self._end_requested = True
+                            print(
+                                "[end_session] 마지막 응답 재생 후 종료합니다 "
+                                "(tool response 미전송)."
+                            )
+                            # receive 루프는 계속 돌며 남은 오디오 청크를 받는다.
+                            # 백그라운드에서 큐 drain 후 done 을 세트한다.
+                            asyncio.create_task(self._finish_end_session())
 
                     server_content = response.server_content
                     if not server_content:
@@ -368,17 +591,18 @@ class LiveSession:
                         self._last_activity_ts = time.monotonic()
 
                         if self._end_requested:
-                            while not self.audio_in_queue.empty():
-                                await asyncio.sleep(0.05)
-                            await asyncio.sleep(self._PLAYBACK_TAIL_SEC)
-                            self.done.set()
+                            await self._finish_end_session()
                             return
             except asyncio.CancelledError:
                 return
             except Exception as error:
-                if self.done.is_set():
+                if self._end_requested:
+                    await self._finish_end_session()
                     return
-                print(f"\n[session] 연결 오류: {error}")
+                if self.done.is_set() or _is_graceful_close_error(error):
+                    self.done.set()
+                    return
+                _print_session_error(error, prefix="연결 오류")
                 self.done.set()
                 return
 
@@ -401,6 +625,8 @@ class LiveSession:
                         self._mute_mic = False
                 continue
             self._mute_mic = True
+            if ECHO_CANCELLATION_ENABLED and self._echo.enabled:
+                self._echo.add_reference_pcm16_24k(bytestream)
             try:
                 await asyncio.to_thread(self.speaker_stream.write, bytestream)
             except OSError as error:
@@ -439,7 +665,7 @@ class LiveSession:
                 "activity_handling": "NO_INTERRUPTION",
             },
             # 침묵·무관한 입력에 불필요하게 다시 말하지 않도록
-            "proactivity": {"proactive_audio": True},
+            "proactivity": {"proactive_audio": False},
             "tools": [{"function_declarations": TOOLS}],
         }
 
@@ -455,7 +681,21 @@ class LiveSession:
                 self._turn_complete_event.clear()
                 self._last_activity_ts = time.monotonic()
                 self._end_requested = False
+                self._end_finish_started = False
+                self._end_requested_at = 0.0
                 self._mute_mic = False
+                if ECHO_CANCELLATION_ENABLED and self._echo.enabled:
+                    self._echo.reset()
+                if SPEAKER_VERIFICATION_ENABLED and LIVE_SPEAKER_GATE_ENABLED:
+                    verifier = get_speaker_verifier()
+                    if verifier.is_ready:
+                        self._speaker_gate = LiveSpeakerGate(verifier, CHUNK_SIZE)
+                        if self._speaker_gate_warmup:
+                            self._speaker_gate.force_open(LIVE_SPEAKER_GATE_HOLD_SEC)
+                    else:
+                        self._speaker_gate = None
+                else:
+                    self._speaker_gate = None
 
                 print("Gemini Live 연결됨. 말씀하세요.")
 
@@ -470,44 +710,52 @@ class LiveSession:
         except asyncio.CancelledError:
             pass
         except BaseExceptionGroup as error_group:
-            real_errors = [
-                exc for exc in error_group.exceptions
-                if not isinstance(exc, asyncio.CancelledError)
-            ]
-            if real_errors:
-                print("\n[session] 작업 중 오류 발생")
-                traceback.print_exception(error_group)
+            if self._end_requested:
+                pass
+            else:
+                real_errors = [
+                    exc for exc in error_group.exceptions
+                    if not isinstance(exc, asyncio.CancelledError)
+                    and not _is_graceful_close_error(exc)
+                ]
+                if real_errors:
+                    print("\n[session] 작업 중 오류 발생")
+                    traceback.print_exception(error_group)
         except Exception as error:
-            print(f"\n[session] 오류: {error}")
+            if not self._end_requested and not _is_graceful_close_error(error):
+                _print_session_error(error, prefix="오류")
         finally:
             self.cleanup()
 
     def cleanup(self):
         # 종료 시점에는 백그라운드 write/read 스레드와 경합할 수 있어
-        # PortAudio 내부 에러(-9986 등)가 자주 보고된다. 정리는 best-effort.
-        for stream_attr in ("audio_stream", "speaker_stream"):
-            stream = getattr(self, stream_attr)
-            if stream is None:
-                continue
+        # PortAudio 내부 에러(-9986 / Core Audio -50 등)가 종종 stderr 로
+        # 직접 출력된다. 정리는 best-effort 이고, 그 잡음만 잠깐 차단한다.
+        with _suppress_native_streams():
+            for stream_attr in ("audio_stream", "speaker_stream"):
+                stream = getattr(self, stream_attr)
+                if stream is None:
+                    continue
+                try:
+                    if stream.is_active():
+                        stream.stop_stream()
+                except Exception:
+                    pass
+                try:
+                    stream.close()
+                except Exception:
+                    pass
+                setattr(self, stream_attr, None)
+
             try:
-                stream.stop_stream()
+                self.pya.terminate()
             except Exception:
                 pass
-            try:
-                stream.close()
-            except Exception:
-                pass
-            setattr(self, stream_attr, None)
-
-        try:
-            self.pya.terminate()
-        except Exception:
-            pass
 
 
-async def run_live_session():
+async def run_live_session(*, speaker_gate_warmup: bool = False):
     """Wake word 감지 후 Gemini Live API 세션 실행"""
-    session = LiveSession()
+    session = LiveSession(speaker_gate_warmup=speaker_gate_warmup)
     await session.run()
 
 

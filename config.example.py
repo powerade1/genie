@@ -1,5 +1,28 @@
 WAKE_WORD_MODEL_PATH = "wake_word/model/genie.onnx"
 WAKE_WORD_THRESHOLD = 0.5
+WAKE_WORD_CONSECUTIVE_FRAMES = 3
+WAKE_WORD_REFRACTORY_SEC = 3.0
+WAKE_WORD_POST_SESSION_COOLDOWN_SEC = 2.5
+
+WAKE_EVENT_LOG_ENABLED = True
+WAKE_EVENT_LOG_DIR = "logs/wake_events"
+WAKE_EVENT_STATS_PRINT_EVERY = 5
+
+SPEAKER_VERIFICATION_ENABLED = True
+SPEAKER_ENROLLMENT_DIR = "wake_word/data/positive/user"
+SPEAKER_EMBEDDING_PATH = "wake_word/model/user_embedding.npz"
+SPEAKER_SIMILARITY_THRESHOLD = 0.75
+SPEAKER_VERIFY_MIN_SAMPLES = 8000
+
+LIVE_SPEAKER_GATE_ENABLED = True
+LIVE_MIN_RMS = 250
+LIVE_SPEAKER_CHECK_INTERVAL_SEC = 0.35
+LIVE_SPEAKER_GATE_HOLD_SEC = 2.5
+
+ECHO_CANCELLATION_ENABLED = True
+ECHO_FILTER_LENGTH = 2048
+ECHO_REF_DELAY_MS = 80
+ECHO_NLMS_STEP = 0.4
 
 GEMINI_MODEL = "gemini-2.5-flash-native-audio-preview-12-2025"
 GEMINI_VOICE = "Aoede"
@@ -28,8 +51,6 @@ YOUTUBE_QUERY_ALIASES = {
     "j-pop playlist": "종팝 플레이리스트",
     "j pop playlist": "종팝 플레이리스트",
     "j-pop": "종팝",
-    "j pop": "종팝",
-    "jpop": "종팝",
 }
 
 SEND_SAMPLE_RATE = 16000
@@ -62,7 +83,7 @@ SYSTEM_PROMPT = (
     "작업 요청에는 create_tool을 호출하세요. tool_description에는 사용자 요청을 "
     "한국어로 명확히 요약하세요. Supervisor 서버 미실행 시 반환된 오류 메시지를 "
     "그대로 음성으로 안내하세요. "
-    "사용자가 대화 종료 의사를 표하면(예: '끝', '그만', '고마워', '잘 가', '됐어') "
+    "사용자가 대화 종료 의사를 표하면(예: '들어가봐', '그만', '고마워', '잘 가', '됐어') "
     "짧게 인사한 뒤 즉시 end_session 함수를 호출하세요."
 )
 
@@ -127,3 +148,7 @@ CURSOR_FOLLOWUP_INSTRUCTION = (
     "반드시 JSON {\"action\": ..., \"question\": ..., "
     "\"auto_answer\": ..., \"reasoning\": ...} 형식으로만 출력."
 )
+
+# LaunchAgent 자동 실행 (scripts/install_launch_agents.sh 또는 sync_launch_config.sh 적용)
+LAUNCH_AGENT_AUTO_START_ON_BOOT = True
+LAUNCH_AGENT_AUTO_START_ON_WAKE = True

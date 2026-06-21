@@ -6,8 +6,11 @@ cd /Users/woojin/Desktop/DEV/2_active/genie
 source /Users/woojin/anaconda3/etc/profile.d/conda.sh
 conda activate genie
 
-# 실행
-python main.py
+# launchd 로그 즉시 flush
+export PYTHONUNBUFFERED=1
+
+# 실행 (-u: unbuffered stdout/stderr)
+exec python -u main.py
 
 # 추후 추가 가능 예시
 # npm run dev

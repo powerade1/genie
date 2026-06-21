@@ -3,6 +3,9 @@ __pycache__/
 *.pyc
 .DS_Store
 config.py
+.env
+logs/
+logs/wake_events/
 wake_word/data/positive/
 wake_word/data/negative/*.wav
 wake_word/data/negative/*.mp3

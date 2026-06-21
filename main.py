@@ -1,11 +1,49 @@
 import asyncio
 import logging
+import os
 import sys
 import threading
 from pathlib import Path
 
-from config import WAKE_WORD_MODEL_PATH
+
+def _load_dotenv() -> None:
+    """프로젝트 루트의 .env 파일을 os.environ 으로 로드한다.
+
+    launchd 환경에서는 사용자 shell rc 파일이 source 되지 않아
+    GEMINI_API_KEY 같은 변수가 비어 있다. 의존성 없이 표준 라이브러리만으로
+    파싱한다 (단순 KEY=VALUE / 따옴표 / # 주석 / export 접두사 지원).
+    """
+    env_path = Path(__file__).parent / ".env"
+    if not env_path.is_file():
+        return
+    try:
+        for raw in env_path.read_text(encoding="utf-8").splitlines():
+            line = raw.strip()
+            if not line or line.startswith("#"):
+                continue
+            if line.startswith("export "):
+                line = line[len("export "):].lstrip()
+            if "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            key = key.strip()
+            value = value.strip()
+            if (len(value) >= 2) and (
+                (value[0] == value[-1] == '"') or (value[0] == value[-1] == "'")
+            ):
+                value = value[1:-1]
+            if key and key not in os.environ:
+                os.environ[key] = value
+    except Exception as error:
+        print(f"[env] .env 로드 실패(무시): {error}")
+
+
+_load_dotenv()
+
+
+from config import WAKE_WORD_MODEL_PATH  # noqa: E402  (env 로드 후 import)
 from audio.feedback import play_activation_chime
+from audio.speaker import get_speaker_verifier
 from hotkey.listener import HotkeyListener
 from live.session import ensure_api_key, run_live_session
 from wake_word.detector import WakeWordDetector
@@ -46,7 +84,7 @@ def find_wake_word_model():
     return None
 
 
-def launch_session(source: str):
+def launch_session(source: str, *, detector: WakeWordDetector):
     """Wake word 또는 단축키로 Gemini Live 세션 시작"""
     if not _session_lock.acquire(blocking=False):
         print(f"({source}) 이미 세션 진행 중, 무시")
@@ -54,14 +92,18 @@ def launch_session(source: str):
     try:
         if source == "hotkey":
             play_activation_chime()
+        detector.suspend_for_session()
         print(f"지니 활성화 ({source})")
-        asyncio.run(run_live_session())
+        asyncio.run(
+            run_live_session(speaker_gate_warmup=(source == "wake-word"))
+        )
         print("대기 중으로 복귀...")
     except KeyboardInterrupt:
         print("\n세션 중단")
     except Exception as error:
         print(f"\n세션 오류: {error}")
     finally:
+        detector.resume_after_session()
         _session_lock.release()
 
 
@@ -82,14 +124,19 @@ def main():
     logging.getLogger("pynput").addFilter(_PynputAccessibilityFilter())
 
     print(f"Wake word 모델: {model_path}")
+    get_speaker_verifier()
     detector = WakeWordDetector(model_path=model_path)
-    hotkey = HotkeyListener(callback=lambda: launch_session("hotkey"))
+    hotkey = HotkeyListener(
+        callback=lambda: launch_session("hotkey", detector=detector)
+    )
     hotkey.start()
     print("단축키 활성: Option+Space")
 
     try:
         print("대기 중... ('지니야' 또는 Option+Space)")
-        detector.listen(callback=lambda: launch_session("wake-word"))
+        detector.listen(
+            callback=lambda: launch_session("wake-word", detector=detector)
+        )
     except KeyboardInterrupt:
         print("\n종료합니다.")
     finally:
