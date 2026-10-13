@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.woojin.genie</string>
+
+    <!--
+        bash 를 거치지 않고 conda env python 을 직접 호출.
+        macOS TCC 가 /bin/bash 의 ~/Desktop 접근을 거부하기 때문.
+        conda env 의 python 은 watcher 가 이미 권한을 받았으면 함께 통과한다.
+        그래도 거부되면: 시스템 설정 → 개인정보 보호 및 보안 → 전체 디스크 액세스
+        (또는 파일 및 폴더) 에 /Users/woojin/anaconda3/envs/genie/bin/python 추가.
+    -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/woojin/anaconda3/envs/genie/bin/python</string>
+        <string>-u</string>
+        <string>/Users/woojin/Desktop/DEV/2_active/genie/main.py</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/woojin/Desktop/DEV/2_active/genie</string>
+
+    <!-- 로그인 시 1번 자동 실행. 종료 후엔 wake watcher 가 깨우기 전까지는 그대로 꺼져 있음. -->
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <false/>
+
+    <!-- crash 직후 너무 빠른 재시도 방지 (kickstart 시엔 영향 없음) -->
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+
+    <key>ProcessType</key>
+    <string>Interactive</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/Users/woojin/anaconda3/envs/genie/bin:/Users/woojin/anaconda3/condabin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <key>HOME</key>
+        <string>/Users/woojin</string>
+        <key>LANG</key>
+        <string>ko_KR.UTF-8</string>
+        <key>PYTHONUNBUFFERED</key>
+        <string>1</string>
+        <key>PYTHONPATH</key>
+        <string>/Users/woojin/Desktop/DEV/2_active/genie</string>
+        <key>CONDA_PREFIX</key>
+        <string>/Users/woojin/anaconda3/envs/genie</string>
+        <key>CONDA_DEFAULT_ENV</key>
+        <string>genie</string>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>/Users/woojin/Desktop/DEV/2_active/genie/logs/genie.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/woojin/Desktop/DEV/2_active/genie/logs/genie.err.log</string>
+</dict>
+</plist>
